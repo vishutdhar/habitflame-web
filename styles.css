@@ -1,0 +1,681 @@
+/* ------------------------------------------------------------------ *
+   HabitFlame site styles
+   Display: Bricolage Grotesque (self-hosted). Body: Inter (self-hosted).
+ * ------------------------------------------------------------------ */
+
+@font-face {
+    font-family: "Bricolage Grotesque";
+    font-style: normal;
+    font-weight: 700 800;
+    font-display: swap;
+    src: url("/assets/fonts/bricolage-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+        U+02DA, U+02DC, U+2013-2014, U+2018-2019, U+201C-201D, U+2020-2022,
+        U+2026, U+2030, U+2039-203A, U+2044, U+2074, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("/assets/fonts/inter-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+        U+02DA, U+02DC, U+2013-2014, U+2018-2019, U+201C-201D, U+2020-2022,
+        U+2026, U+2030, U+2039-203A, U+2044, U+2074, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    --bg: #0A0908;
+    --surface: #151210;
+    --surface-2: #1E1915;
+    --ink: #F7F1E8;
+    --muted: #A99E8E;
+    --ember: #FF8A1E;
+    --ember-hot: #FFB340;
+    --ember-deep: #E8471C;
+    --line: rgba(247, 241, 232, 0.09);
+    --line-strong: rgba(247, 241, 232, 0.16);
+
+    --grad-ember: linear-gradient(120deg, #FFB340, #FF8A1E 45%, #E8471C);
+
+    --display: "Bricolage Grotesque", "Trebuchet MS", -apple-system,
+        BlinkMacSystemFont, sans-serif;
+    --text: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+
+    --maxw: 1120px;
+    --pad: 24px;
+    --rhythm: 96px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: var(--text);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+a {
+    color: inherit;
+}
+
+:focus-visible {
+    outline: 2px solid var(--ember-hot);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.wrap {
+    width: 100%;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 var(--pad);
+}
+
+.eyebrow {
+    font-family: var(--text);
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.gradient-text {
+    background: var(--grad-ember);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+/* ---- Buttons ---------------------------------------------------- */
+.btn-app {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.95rem 1.5rem;
+    background: var(--grad-ember);
+    color: #1B0D02;
+    text-decoration: none;
+    font-family: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 34px -12px rgba(232, 71, 28, 0.7);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-app:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 44px -12px rgba(232, 71, 28, 0.75);
+}
+
+.btn-app svg {
+    width: 21px;
+    height: 21px;
+    flex-shrink: 0;
+}
+
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.95rem 1.5rem;
+    background: var(--surface-2);
+    color: var(--ink);
+    text-decoration: none;
+    font-family: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--line-strong);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-ghost:hover {
+    background: #262019;
+    border-color: rgba(247, 241, 232, 0.28);
+}
+
+.microcopy {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 0.9rem;
+}
+
+/* ---- Ember divider (7 dots: 4 lit, 3 cold) ---------------------- */
+.ember-divider {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: var(--rhythm) 0;
+}
+
+.ember-divider span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(169, 158, 142, 0.25);
+}
+
+.ember-divider span.lit {
+    background: var(--grad-ember);
+    box-shadow: 0 0 10px -1px rgba(255, 138, 30, 0.65);
+}
+
+/* ---- Header ----------------------------------------------------- */
+.site-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(10, 9, 8, 0.72);
+    backdrop-filter: saturate(150%) blur(16px);
+    -webkit-backdrop-filter: saturate(150%) blur(16px);
+    border-bottom: 1px solid var(--line);
+}
+
+.site-nav .wrap {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    color: var(--ink);
+}
+
+.brand img {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+}
+
+.site-nav nav {
+    display: flex;
+    gap: 1.6rem;
+}
+
+.site-nav nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.site-nav nav a:hover {
+    color: var(--ink);
+}
+
+/* ---- Device frame + signature glow ------------------------------ */
+.device {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    border-radius: 44px;
+    padding: 7px;
+    background: linear-gradient(155deg, #2A2420 0%, #100D0B 60%, #1C1815 100%);
+    box-shadow:
+        0 40px 90px -30px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(247, 241, 232, 0.06),
+        inset 0 1px 0 rgba(247, 241, 232, 0.08);
+}
+
+.device img {
+    width: 100%;
+    border-radius: 37px;
+    display: block;
+}
+
+.hero-stage {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    isolation: isolate;
+}
+
+/* radial heat-glow behind the device */
+.hero-stage .heat {
+    position: absolute;
+    z-index: 0;
+    width: 118%;
+    aspect-ratio: 1;
+    left: 50%;
+    top: 48%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 50% 50%,
+        rgba(255, 138, 30, 0.42) 0%,
+        rgba(232, 71, 28, 0.22) 34%,
+        transparent 66%);
+    filter: blur(8px);
+    pointer-events: none;
+}
+
+/* thin ember arc sweeping behind the device */
+.hero-stage .arc {
+    position: absolute;
+    z-index: 1;
+    width: 128%;
+    height: 128%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    overflow: visible;
+}
+
+.hero-stage .arc path {
+    fill: none;
+    stroke: url(#emberArc);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 8px rgba(255, 138, 30, 0.55));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .hero-stage .heat {
+        animation: heatPulse 6s ease-in-out infinite alternate;
+    }
+}
+
+@keyframes heatPulse {
+    from { opacity: 0.8; transform: translate(-50%, -50%) scale(0.98); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+}
+
+/* ---- Hero ------------------------------------------------------- */
+.hero {
+    padding: 72px 0 24px;
+}
+
+.hero .wrap {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items: center;
+}
+
+.hero-copy .eyebrow {
+    margin-bottom: 1.1rem;
+}
+
+.hero-copy h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2.5rem, 5.6vw, 4.1rem);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.2rem;
+}
+
+.hero-copy p.lede {
+    color: var(--muted);
+    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+    max-width: 40ch;
+    margin-bottom: 1.9rem;
+}
+
+/* ---- Feature sections ------------------------------------------- */
+.feature .wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+}
+
+.feature.reverse .feature-media {
+    order: -1;
+}
+
+.feature-copy h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    margin: 0.8rem 0 1rem;
+}
+
+.feature-copy p {
+    color: var(--muted);
+    font-size: 1.08rem;
+    max-width: 46ch;
+}
+
+.feature-copy p + p {
+    margin-top: 0.9rem;
+}
+
+.feature-copy .accent {
+    color: var(--ink);
+    font-weight: 500;
+}
+
+.feature-media {
+    display: flex;
+    justify-content: center;
+}
+
+.feature-media .device {
+    max-width: 270px;
+}
+
+/* two-up gallery (streaks section) */
+.stakes .wrap {
+    display: block;
+}
+
+.stakes .stakes-head {
+    max-width: 44ch;
+    margin-bottom: 40px;
+}
+
+.stakes .stakes-head h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    margin: 0.8rem 0 0;
+}
+
+.two-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.shot-card {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.shot-card .device {
+    max-width: 250px;
+}
+
+.shot-card .caption {
+    text-align: center;
+}
+
+.shot-card .caption .t {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink);
+}
+
+.shot-card .caption .d {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 0.15rem;
+}
+
+/* ---- Closer ----------------------------------------------------- */
+.closer {
+    padding-bottom: var(--rhythm);
+}
+
+.closer .box {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 56px 32px;
+}
+
+.closer .box h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.7rem;
+}
+
+.closer .box p {
+    color: var(--muted);
+    font-size: 1.08rem;
+    margin-bottom: 1.9rem;
+}
+
+/* ---- Footer ----------------------------------------------------- */
+.site-footer {
+    border-top: 1px solid var(--line);
+    padding: 44px 0 52px;
+    margin-top: var(--rhythm);
+}
+
+.site-footer .foot-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.6rem;
+    margin-bottom: 1.1rem;
+}
+
+.site-footer .foot-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    transition: color 0.2s ease;
+}
+
+.site-footer .foot-links a:hover {
+    color: var(--ember);
+}
+
+.site-footer .copy {
+    text-align: center;
+    color: rgba(169, 158, 142, 0.7);
+    font-size: 0.85rem;
+}
+
+/* ---- Long-form document pages ----------------------------------- */
+.doc {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px var(--pad) 8px;
+}
+
+.doc h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2rem, 5vw, 2.7rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+}
+
+.doc .updated {
+    color: rgba(169, 158, 142, 0.75);
+    font-size: 0.9rem;
+    margin-bottom: 2.4rem;
+}
+
+.doc h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin: 2.4rem 0 0.7rem;
+    color: var(--ink);
+}
+
+.doc p {
+    color: var(--muted);
+    margin-bottom: 1rem;
+}
+
+.doc ul {
+    color: var(--muted);
+    margin: 0 0 1rem 1.25rem;
+}
+
+.doc li {
+    margin-bottom: 0.4rem;
+}
+
+.doc a {
+    color: var(--ember);
+    text-decoration: none;
+}
+
+.doc a:hover {
+    text-decoration: underline;
+}
+
+.doc strong {
+    color: var(--ink);
+}
+
+.doc .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 1.5rem 1.75rem;
+    margin: 1.5rem 0 2rem;
+}
+
+.doc .card p:last-child {
+    margin-bottom: 0;
+}
+
+.doc .faq {
+    margin-bottom: 1.5rem;
+}
+
+.doc .faq .q {
+    color: var(--ink);
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.doc hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 3rem 0 1.5rem;
+}
+
+.doc .tagline {
+    color: rgba(169, 158, 142, 0.7);
+    font-size: 0.85rem;
+}
+
+/* ---- Responsive ------------------------------------------------- */
+@media (max-width: 860px) {
+    :root {
+        --rhythm: 64px;
+    }
+
+    .hero {
+        padding: 44px 0 8px;
+    }
+
+    .hero .wrap,
+    .feature .wrap {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    .hero-copy {
+        text-align: center;
+    }
+
+    .hero-copy p.lede {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .feature-copy {
+        text-align: center;
+    }
+
+    .feature-copy p {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* image always leads on mobile for a consistent rhythm */
+    .feature .feature-media,
+    .feature.reverse .feature-media {
+        order: -1;
+    }
+
+    .stakes .stakes-head {
+        text-align: center;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media (max-width: 560px) {
+    .site-nav nav {
+        gap: 1.1rem;
+    }
+
+    .site-nav nav a {
+        font-size: 0.85rem;
+    }
+
+    .two-up {
+        grid-template-columns: 1fr;
+        gap: 44px;
+        max-width: 320px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Keep the header on one row without overlap on narrow phones. */
+    .nav-collapsible {
+        display: none;
+    }
+
+    .site-nav nav {
+        gap: 1rem;
+    }
+}
