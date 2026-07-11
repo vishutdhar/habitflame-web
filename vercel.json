@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/invite/:code", "destination": "/invite.html" }
+    { "source": "/invite/:code", "destination": "/invite" }
   ],
   "headers": [
     {
