@@ -668,3 +668,14 @@ a {
         margin: 0 auto;
     }
 }
+
+@media (max-width: 480px) {
+    /* Keep the header on one row without overlap on narrow phones. */
+    .nav-collapsible {
+        display: none;
+    }
+
+    .site-nav nav {
+        gap: 1rem;
+    }
+}

@@ -177,6 +177,12 @@
             width: 100%;
         }
 
+        .open-hint {
+            color: var(--muted);
+            font-size: 0.88rem;
+            margin-top: 0.1rem;
+        }
+
         .step-store {
             margin: 1rem 0 0;
         }
@@ -274,7 +280,8 @@
             </div>
 
             <div class="actions">
-                <a href="#" class="btn-ghost" id="open-app-btn">Already have HabitFlame? Open the app</a>
+                <a href="habitflame://" class="btn-ghost" id="open-app-btn">Already have HabitFlame? Open the app</a>
+                <p class="open-hint">Then go to Partners, tap Enter Code, and paste your code.</p>
             </div>
 
             <p class="fine">Codes expire after seven days. If yours has expired, ask your partner to send a new invite.</p>
@@ -303,7 +310,7 @@
             <a href="/terms-of-service">Terms of Service</a>
             <a href="/support">Support</a>
         </div>
-        <p class="copy">Copyright 2026 HabitFlame. All rights reserved.</p>
+        <p class="copy">HabitFlame for iPhone and iPad. Copyright 2026.</p>
     </footer>
 
     <script>
@@ -399,9 +406,10 @@
                 document.getElementById("code-value").textContent = code;
                 document.getElementById("code-inline").textContent = code;
 
-                // Deep link for people who already have the app installed.
-                var openBtn = document.getElementById("open-app-btn");
-                openBtn.setAttribute("href", "habitflame://invite?code=" + encodeURIComponent(code));
+                // Deep link simply opens the app. The shipped app's legacy
+                // link parser cannot resolve a bare code, so the recipient
+                // enters the code manually under Partners (see the hint below
+                // the button). The href is static in the markup.
 
                 // Copy button with a clipboard-API path and a fallback.
                 var copyBtn = document.getElementById("copy-btn");
