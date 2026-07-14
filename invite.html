@@ -384,7 +384,9 @@
                 }
                 // Guard against absurdly long values.
                 if (name.length > 60) {
-                    name = name.slice(0, 60);
+                    // Truncate by code points so a split surrogate pair can
+                    // never produce an unencodable lone surrogate.
+                    name = Array.from(name).slice(0, 60).join("");
                 }
                 return name;
             }
@@ -418,10 +420,44 @@
                 document.getElementById("code-value").textContent = code;
                 document.getElementById("code-inline").textContent = code;
 
-                // Deep link simply opens the app. The shipped app's legacy
-                // link parser cannot resolve a bare code, so the recipient
-                // enters the code manually under Partners (see the hint below
-                // the button). The href is static in the markup.
+                // Deep link carries the code and, when present, the
+                // upgraded-invite marker and inviter hints, so an installed
+                // app can resolve the invite directly. Apps that predate
+                // scheme-link codes still show the manual-entry hint below.
+                var params = new URLSearchParams(window.location.search);
+                // Raw single-param reader: unlike URLSearchParams it does not
+                // form-decode "+" into a space, so literal pluses in names
+                // survive the round trip into the custom-scheme URL.
+                function readRawParam(key) {
+                    var pairs = window.location.search.replace(/^\?/, "").split("&");
+                    for (var i = 0; i < pairs.length; i++) {
+                        var eq = pairs[i].indexOf("=");
+                        if (eq > 0 && pairs[i].slice(0, eq) === key) {
+                            try {
+                                return decodeURIComponent(pairs[i].slice(eq + 1));
+                            } catch (e) {
+                                return "";
+                            }
+                        }
+                    }
+                    return "";
+                }
+                var deepLink = "habitflame://invite?code=" + encodeURIComponent(code);
+                if (params.get("v") === "2") {
+                    deepLink += "&v=2";
+                    var hintName = readRawParam("n").trim();
+                    if (hintName.length > 60) {
+                        hintName = Array.from(hintName).slice(0, 60).join("");
+                    }
+                    if (hintName) {
+                        deepLink += "&n=" + encodeURIComponent(hintName);
+                    }
+                    var uid = params.get("uid");
+                    if (uid && /^[0-9a-fA-F-]{1,64}$/.test(uid)) {
+                        deepLink += "&uid=" + encodeURIComponent(uid);
+                    }
+                }
+                document.getElementById("open-app-btn").setAttribute("href", deepLink);
 
                 // Copy button with a clipboard-API path and a fallback.
                 var copyBtn = document.getElementById("copy-btn");
