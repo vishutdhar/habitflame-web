@@ -205,6 +205,19 @@
             margin-top: 1.75rem;
         }
 
+        /* Update-required notice for upgraded (v2) invites */
+        .version-notice {
+            text-align: left;
+            background: rgba(255, 138, 30, 0.14);
+            border: 1px solid rgba(255, 138, 30, 0.32);
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            margin-top: 1.75rem;
+            color: var(--ink);
+            font-size: 0.94rem;
+            line-height: 1.5;
+        }
+
         /* Graceful no-code state */
         .fallback {
             max-width: 460px;
@@ -290,6 +303,8 @@
                     </div>
                 </div>
             </div>
+
+            <p class="version-notice" id="version-notice" hidden>This invite needs HabitFlame 4.2 or later. Update the app from the App Store before opening the invite.</p>
 
             <div class="actions">
                 <a href="habitflame://" class="btn-ghost" id="open-app-btn">Already have HabitFlame? Open the app</a>
@@ -444,6 +459,7 @@
                 }
                 var deepLink = "habitflame://invite?code=" + encodeURIComponent(code);
                 if (params.get("v") === "2") {
+                    document.getElementById("version-notice").hidden = false;
                     deepLink += "&v=2";
                     var hintName = readRawParam("n").trim();
                     if (hintName.length > 60) {
