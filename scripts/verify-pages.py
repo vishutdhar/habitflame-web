@@ -264,8 +264,10 @@ check([p.get("file") for p in POLICIES] == POLICY_NAMES, f"policies are {[p.get(
 DATES.update({p.get("file"): p.get("lastmod") for p in POLICIES})
 for retired in ("lastmod", "policy_lastmod", "css_version", "verification_file"):
     check(retired not in SITE, f"site.{retired} is retired; dates live on each page and the stylesheet version is a hash")
+TODAY = datetime.date.today().isoformat()
 for key, value in DATES.items():
     check(iso_date(value), f"lastmod for {key} is {value!r}, not a YYYY-MM-DD date")
+    check(not iso_date(value) or value <= TODAY, f"lastmod for {key} is {value}, a future date (today is {TODAY})")
 
 # ---- 5. Facts and the number allowlist --------------------------------------
 
@@ -305,10 +307,19 @@ HAND_WRITTEN_HTML = {"invite.html"}
 for f in sorted(ROOT.glob("*.html")):
     if f.name not in FRESH and f.name not in HAND_WRITTEN_HTML:
         failures.append(f"{f.name}: an HTML file that is neither generated nor the invite page (stale output?)")
-for f in sorted(ROOT.rglob("index.html")):
+# Directories kept out of the deployment by .vercelignore (the generator's
+# sources, whose template and fragments would otherwise be served as pages).
+NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts"}
+try:
+    vercelignore = (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines()
+except OSError:
+    vercelignore = []
+check("/scripts/" in vercelignore, ".vercelignore: does not exclude /scripts/ from the deployment")
+for f in sorted(ROOT.rglob("*.html")):
     rel_f = f.relative_to(ROOT)
-    if rel_f.parts[0] not in {".git", ".vercel", "node_modules"} and str(rel_f) != "index.html":
-        failures.append(f"{rel_f}: a directory index page; pages are flat <name>.html files")
+    if rel_f.parts[0] in NOT_DEPLOYED or len(rel_f.parts) == 1:
+        continue
+    failures.append(f"{rel_f}: an HTML file below the root would be served as a page; pages are flat <name>.html files")
 
 HTML_PAGES = [(p, gen.page_file(p)) for p in [None, *PAGES, *POLICIES]]
 
@@ -1022,7 +1033,9 @@ else:
         if here == git("show", f"{BASELINE}:{rel_path}"):
             check(conf == before, f"{rel_path}: unchanged from {BASELINE} but lastmod moved from {before} to {conf}")
         else:
-            check(conf > before, f"{rel_path}: changed from {BASELINE} but lastmod {conf} is not later than {before}")
+            # A second change on the day the baseline was dated keeps today's date.
+            check(conf > before or conf == before == TODAY,
+                  f"{rel_path}: changed from {BASELINE} but lastmod {conf} is not later than {before}")
     for name in POLICY_NAMES:
         on_base = git("show", f"{BASELINE}:{name}")
         base_date = (git("log", "-1", "--format=%ad", "--date=short", BASELINE, "--", name) or b"").decode().strip()
@@ -1042,7 +1055,9 @@ for u in locs:
     check(f.is_file() and not rel.endswith((".html", "/")), f"sitemap.xml: {u} does not resolve to a page Vercel serves without a redirect")
 # j. The privacy policy (a hand written fragment, rendered into the template)
 #    says what the app does.
-POLICY = FRESH["privacy-policy.html"]
+# Visible markup only: the JSON-LD in the head could repeat a phrase the
+# visible page lost.
+POLICY = FRESH["privacy-policy.html"].split("<main", 1)[-1]
 for must in ("PostHog", "pairing service", "push notification", "Apple Health", "Screen recordings", "weekly count", "Nudges and reactions", SITE["contact_email"]):
     check(must in POLICY, f"privacy-policy.html: missing {must!r}")
 # Sentences from the retired policies, false about what the app does: the
@@ -1056,6 +1071,10 @@ RETIRED_POLICY_SENTENCES = (
     "the names of shared habits, completion events, milestones, streak counts, nudges, reactions, and your display name are relayed",
     "It never leaves your device and is never sent to any server",
     "An anonymous identity key that represents your account without revealing who you are",
+    # Retired from the first custom domain version of the truthful policy:
+    # Health values sync through iCloud, replay is off, and the weekly count
+    # carries one record per completion.
+    "Health values stay on your device", "Session replay is turned on", "never individual habits",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1068,7 +1087,10 @@ check(bool(push) and "have Premium and complete" in norm(re.sub(r"\s+", " ", pus
       "privacy-policy.html: the Push notifications section does not say 'have Premium and complete'")
 
 # n. The support page does not tie iCloud sync to Premium.
-SUPPORT = FRESH["support.html"]
+SUPPORT = FRESH["support.html"].split("<main", 1)[-1]
+for must in ("How do I add an accountability partner?", "I have an invite code. Where do I enter it?",
+             "How do I restore my purchase?", "Restore Purchases", f'href="mailto:{SITE["contact_email"]}"'):
+    check(must in SUPPORT, f"support.html: missing {must!r} from the visible page")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
                        "With Premium, iCloud sync keeps your habits in sync across all your iPhone and iPad devices.",
@@ -1120,6 +1142,21 @@ try:
 except (OSError, ValueError, KeyError, TypeError) as e:
     failures.append(f"apple-app-site-association: {type(e).__name__}: {e}")
 check((ROOT / "invite.html").is_file(), "invite.html: missing")
+check((ROOT / "styles.css").is_file(), "styles.css: missing; the invite page uses it")
+for rd in VERCEL.get("redirects", []) + [r for r in VERCEL.get("rewrites", []) if r.get("source") != "/invite/:code"]:
+    src = rd.get("source", "")
+    check(not (src.startswith("/invite") or src.startswith("/.well-known") or src.startswith("/(") or src.startswith("/:")),
+          f"vercel.json: {src!r} can capture the invite or association paths")
+try:
+    INVITE = (ROOT / "invite.html").read_text(encoding="utf-8")
+except OSError:
+    INVITE = ""
+for m in re.finditer(r'(?:href|src)="(/[^"#?]*)', INVITE):
+    path_part = m.group(1).lstrip("/")
+    target = ROOT / ("index.html" if path_part == "" else path_part)
+    check(target.is_file() or (ROOT / (path_part + ".html")).is_file(), f"invite.html: {m.group(1)} does not resolve to a file")
+for m in re.finditer(r'content="https://habitflame\.vishutdhar\.com(/[^"]+)"', INVITE):
+    check((ROOT / m.group(1).lstrip("/")).is_file(), f"invite.html: {m.group(1)} does not resolve to a file")
 
 # r. Published assets never change in place: /assets is cached for a year, so
 #    a changed file needs a new name. Compared with the baseline ref; skipped
@@ -1128,6 +1165,7 @@ if BASELINE is not None:
     listed = git("ls-tree", "-r", "--name-only", BASELINE, "--", "assets")
     for name in (listed or b"").decode().splitlines():
         here = ROOT / name
+        check(here.is_file(), f"{name}: a published asset was removed")
         if here.is_file():
             check(here.read_bytes() == git("show", f"{BASELINE}:{name}"), f"{name}: changed in place; publish a new file name instead")
 
