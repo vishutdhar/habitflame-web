@@ -13,6 +13,7 @@ app site association file and published assets.
 """
 import codecs
 import datetime
+import hashlib
 import html as htmlmod
 import json
 import pathlib
@@ -745,6 +746,8 @@ for page, rel in HTML_PAGES:
     check(meta(root, "name", "twitter:title") == title, f"{rel}: twitter:title differs from title")
     check(meta(root, "property", "og:description") == description, f"{rel}: og:description differs from description")
     check(meta(root, "name", "twitter:description") == description, f"{rel}: twitter:description differs from description")
+    sheets = [n.attrs.get("href") for n in root.walk() if n.tag == "link" and n.attrs.get("rel") == "stylesheet" and n.attrs.get("href", "").startswith(PINNED_BASE_URL)]
+    check(sheets == [f"{PINNED_BASE_URL}/{gen.STYLESHEET}?v={gen.css_version()}"], f"{rel}: site stylesheet links are {sheets}")
     canons = root.find_all(lambda n: n.tag == "link" and n.attrs.get("rel") == "canonical")
     canon_href = canons[0].attrs.get("href") if len(canons) == 1 else None
     check(len(canons) == 1, f"{rel}: {len(canons)} canonical links, want 1")
@@ -1075,7 +1078,8 @@ for must in ("PostHog", "pairing service", "push notification", "Apple Health", 
 # relay migrations when it was written.
 for must in ("Session replay is turned off", "in your private iCloud database", "one-way hash of the habit's identifier",
              "deleted 30 days later", "Share usage analytics", "when the app is started in the evening",
-             "the same on your devices that share an iCloud account"):
+             "the same on your devices that share an iCloud account",
+             "automatically through your iCloud account", "a request counter for each IP address"):
     check(must in POLICY, f"privacy-policy.html: missing {must!r}")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1102,6 +1106,9 @@ RETIRED_POLICY_SENTENCES = (
     "is invisible to your partner", "Anything not shared is invisible", "Habits you do not share are never sent",
     "every habit you share and complete is sent", "each of your shared completions instantly",
     "Every shared completion as it happens",
+    "A habit completed from a widget is not sent to your partner", "counts for your streak but is not sent",
+    "so the message on Tuesday is not the message from Monday", "wording changes from day to day",
+    "The wording varies from day to day", "keeps a small record of that code",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1154,6 +1161,8 @@ except (OSError, ValueError) as e:
 check(VERCEL.get("cleanUrls") is True, "vercel.json: cleanUrls is not true")
 check(VERCEL.get("trailingSlash") is False, "vercel.json: trailingSlash is not false")
 check({"source": "/invite/:code", "destination": "/invite"} in VERCEL.get("rewrites", []), "vercel.json: the /invite/:code rewrite is missing")
+check(VERCEL.get("rewrites") == [{"source": "/invite/:code", "destination": "/invite"}],
+      f"vercel.json: rewrites are {VERCEL.get('rewrites')}, want only the invite rewrite")
 headers = {h.get("source"): {x.get("key", "").lower(): x.get("value") for x in h.get("headers", [])} for h in VERCEL.get("headers", [])}
 check(headers.get("/.well-known/apple-app-site-association", {}).get("content-type") == "application/json",
       "vercel.json: the association file is not served as application/json")
@@ -1184,6 +1193,11 @@ except OSError:
     INVITE = ""
 # The invite page's own flow: it reads the code from the path and builds the
 # app deep link from it.
+# The invite page is hand written and outside the generator. Its bytes are
+# pinned so a change to its code parsing or deep link is a deliberate edit
+# here too; update the hash only after testing the invite flow on a device.
+INVITE_SHA256 = "8146db30a41140f7ae036539acee9bfb0f59a94ffd3e8f0eef9c1bba6471c184"
+check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
                'href="https://apps.apple.com/app/id6756961710"'):
     check(marker in INVITE, f"invite.html: missing {marker!r}")

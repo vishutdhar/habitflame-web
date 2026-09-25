@@ -73,10 +73,10 @@
         "items": [
           ["Track any habit your way", "Yes or no, a count, a duration, or a multi check-in for habits you do 2 to 4 times a day. Schedule each habit every day, on specific days, or as a weekly target."],
           ["Keep the streak alive", "See your current and longest streak for every habit. Milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days get a celebration, and 16 achievement badges mark the bigger wins."],
-          ["Pair with an accountability partner", "Send an invite link and pair for free. With Premium, each shared habit you complete in the app is sent to your partner the moment it happens, with milestone alerts and, when the app is started in the evening, a warning if a streak is at risk; your partner does not need Premium to receive them. Free accounts get 3 nudges a month and a combined weekly count of what you both completed."],
+          ["Pair with an accountability partner", "Send an invite link and pair for free. With Premium, each shared habit you complete in the app for today is sent to your partner the moment it happens, with milestone alerts and, when the app is started in the evening, a warning if a streak is at risk; your partner does not need Premium to receive them. Free accounts get 3 nudges a month and a combined weekly count of what you both completed."],
           ["Focus with a built-in timer", "A Pomodoro timer runs 25 minute work sessions with 5 minute breaks and a 15 minute long break, so a habit like reading or deep work has its time carved out."],
-          ["Get reminders that change", "Set a reminder time per habit. The wording varies from day to day instead of repeating the same alert."],
-          ["Glance from the home screen", "Interactive widgets show today's habits, your progress and streaks, and a partner widget shows how their day is going when they have Premium. Tap to complete without opening the app. A habit completed from a widget is not sent to your partner."]
+          ["Get reminders that change", "Set a reminder time per habit. The wording is picked again each time you open the app, and a habit on a streak of 7 or more days gets a different message each day."],
+          ["Glance from the home screen", "Interactive widgets show today's habits, your progress and streaks, and a partner widget shows how their day is going when they have Premium. Tap to complete without opening the app. A habit completed from a widget sends your partner no alert, though it still adds to the weekly count."]
         ]
       }
     ],
@@ -90,7 +90,7 @@
       {"q": "Is HabitFlame free?", "a": "Yes. The free version tracks up to 5 habits with every tracking type, streaks, badges, widgets, reminders, the focus timer, iCloud sync, Apple Health and an accountability partner with 3 nudges a month. Premium is a one-time purchase of $9.99 that removes the habit limit and adds habit stacking, smart insights, real-time partner updates and unlimited nudges."},
       {"q": "Do I need an account?", "a": "No. HabitFlame works the moment you open it. Your habits are stored on your device and in your own iCloud. With Premium, the shared habits you complete are delivered to your partner through HabitFlame's pairing service and Apple push notifications. Without Premium, the service carries your nudges, your reactions and, for the weekly count, the day of each completion with a one-way hash of the habit's identifier, never a habit name. What pairing itself stores is set out in the [privacy policy](privacy-policy). Pairing with a partner uses an invite link, not a username or password."},
       {"q": "Which devices does it run on?", "a": "HabitFlame is an iPhone and iPad app from the App Store. There is no Android or web version."},
-      {"q": "Does my partner need to pay?", "a": "No. Pairing, reactions and nudges are free for both of you. Real-time partner updates are bought by the person whose completions are sent: if you have Premium, your partner gets each shared habit you complete in the app instantly without paying. With both of you on the free version, you see a combined weekly count of what you completed and can nudge each other."}
+      {"q": "Does my partner need to pay?", "a": "No. Pairing, reactions and nudges are free for both of you. Real-time partner updates are bought by the person whose completions are sent: if you have Premium, your partner gets each shared habit you complete in the app for today instantly without paying. With both of you on the free version, you see a combined weekly count of what you completed and can nudge each other."}
     ]
   },
   "policies": [
@@ -177,7 +177,7 @@
             ["Pairing, reactions and nudges", "Included", "Included"],
             ["Partner nudges", "3 a month", "Unlimited"],
             ["Real-time partner updates", "No", "Yes"],
-            ["What your partner sees of you", "A combined weekly count", "Each shared completion made in the app, as it happens, milestones, streak at risk"],
+            ["What your partner sees of you", "A combined weekly count", "Each shared completion for today made in the app, as it happens, milestones, streak at risk"],
             ["Habit stacking", "No", "Yes"],
             ["Smart insights", "No", "Yes"],
             ["Streaks, badges, widgets, timer, reminders", "Included", "Included"],
@@ -212,7 +212,7 @@
         {"h2": "Seeing the whole year"},
         {"p": "The stats tab has a full year grid, one square per day, coloured by how much of your day you completed. Weekly and monthly charts show completion rates, and each habit has its own history with current and longest streak. It is the view people screenshot at the end of the year."},
         {"h2": "Streaks on the home screen"},
-        {"p": "Home screen and lock screen widgets show today's habits, your progress for the day and your current streaks, and home screen widgets let you complete a habit without opening the app. On a day when you are about to break a long streak, that number on the home screen is the reminder that works. A habit completed from a widget counts for your streak but is not sent to your partner."},
+        {"p": "Home screen and lock screen widgets show today's habits, your progress for the day and your current streaks, and home screen widgets let you complete a habit without opening the app. On a day when you are about to break a long streak, that number on the home screen is the reminder that works. A habit completed from a widget counts for your streak and the weekly count, but sends your partner no alert."},
         {"h2": "A streak someone else can see"},
         {"p": "This is what makes HabitFlame different from a plain streak counter. Pair with a partner by sending an invite link and choose which habits to share. With Premium, each shared completion and your current streak reach your partner the moment they happen, and they can react and nudge you when a day is still open. Without Premium, your partner sees a combined weekly count of what you both completed, and your nudges still get through. When a long streak is on the line and you start the app in the evening, a streak-at-risk alert goes to your partner with Premium, and knowing they will see it break is usually enough to keep it."},
         {"h2": "Tracking types that fit real habits"},
@@ -361,14 +361,14 @@
         {"h2": "Reminders per habit"},
         {"p": "Each habit has its own reminder time. Set the water reminder for mid morning, the reading reminder for after dinner and the stretch reminder for right before bed. For a habit set to specific days, the reminder follows that schedule, so a habit set to weekdays does not ring on Saturday. A weekly target habit can be done on any day of the week, so it reminds you every day at its reminder time."},
         {"h2": "Wording that changes"},
-        {"p": "A notification you have seen fifty times stops being a notification. HabitFlame rotates the wording of each reminder, so the message on Tuesday is not the message from Monday. It is a small change that keeps the alert readable for longer than the first week."},
+        {"p": "A notification you have seen fifty times stops being a notification. HabitFlame draws each reminder's wording from a set of messages and picks it again each time you open the app, and for a habit on a streak of 7 or more days it schedules a different message for each of the coming days. It is a small change that keeps the alert readable for longer than the first week."},
         {"h2": "Choosing a reminder time that works"},
         {"p": "The best reminder time is not the moment you intend to do the habit. It is a few minutes before a moment you already have. Tie the reminder to something that happens every day anyway: after the morning coffee, when you get home, after dinner, before you brush your teeth. The reminder then lands when you are able to act on it, instead of in the middle of a meeting."},
         {"p": "If you keep swiping a reminder away, move it rather than ignoring it. A reminder you dismiss every day teaches you to dismiss it. Try a later time for a week and see whether the habit starts getting done."},
         {"h2": "The Today view"},
         {"p": "The Today tab lists the habits due today. Each row shows the habit, its streak and a control that matches its type: a tick for yes or no habits, a counter for counts, a timer field for durations and a set of check-ins for multi check-in habits. You can hide completed habits so only what is left stays on screen, and finishing every habit for the day gets a celebration."},
         {"h2": "Reminders that are not notifications"},
-        {"p": "Notifications are only one way to be reminded. Home screen and lock screen widgets show today's habits and how many are done, and home screen widgets let you complete a habit without opening the app. For many people the widget on the lock screen does more than the alert, because it is there every time the phone is picked up. A habit completed from a widget is not sent to your partner."},
+        {"p": "Notifications are only one way to be reminded. Home screen and lock screen widgets show today's habits and how many are done, and home screen widgets let you complete a habit without opening the app. For many people the widget on the lock screen does more than the alert, because it is there every time the phone is picked up. A habit completed from a widget sends your partner no alert, though it still adds to the weekly count."},
         {"p": "The strongest reminder is a person. Pair with an accountability partner and share the habits you keep skipping. With Premium, they see each shared completion as it happens and, when you start the app in the evening, get an alert if a streak of yours is at risk, so a nudge from them arrives as a notification from someone who cares whether you did it. Free accounts include 3 nudges a month, and Premium makes them unlimited."},
         {"h2": "Four ways to track a daily habit"},
         {"ul": [
@@ -389,7 +389,7 @@
         {"faq": [
           {"q": "Can I set more than one reminder time for a habit?", "a": "Each habit has one reminder time. For something you do several times a day, use a multi check-in habit, which tracks 2 to 4 check-ins, and place the reminder at the time you are most likely to forget."},
           {"q": "Do reminders ring on days a habit is not scheduled?", "a": "Not for habits set to specific days: their reminders only ring on the days you picked. A weekly target habit can be completed on any day, so its reminder rings every day at the time you set."},
-          {"q": "Can I complete a habit from the notification or widget?", "a": "Yes. Home screen widgets let you complete a habit without opening the app, and a habit reminder has a Mark Complete action. Lock screen widgets show today's habits and your progress. A habit completed from a widget is not sent to your partner."},
+          {"q": "Can I complete a habit from the notification or widget?", "a": "Yes. Home screen widgets let you complete a habit without opening the app, and a habit reminder has a Mark Complete action. Lock screen widgets show today's habits and your progress. A habit completed from a widget sends your partner no alert, though it still adds to the weekly count."},
           {"q": "Does the app need an account for reminders?", "a": "No. Reminders are local to your phone, and the app never asks you to sign up."},
           {"q": "Can I hide habits I have already finished?", "a": "Yes. Completed habits can be hidden from the Today tab, so the list shows only what is still open."}
         ]}
@@ -430,7 +430,7 @@
           "Streak milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days, and 16 achievement badges.",
           "A stats tab with weekly and monthly completion rates and a full year grid.",
           "Four tracking types: yes or no, count, duration and multi check-in for habits done 2 to 4 times a day.",
-          "Reminders whose wording changes from day to day, Apple Health and iCloud sync."
+          "Reminders whose wording changes, Apple Health and iCloud sync."
         ]},
         {"p": "The list is drawn from each app's App Store listing and website. A feature that HabitShare has but does not describe there would not appear here."},
         {"h2": "What HabitShare has that HabitFlame does not"},
