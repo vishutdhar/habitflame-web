@@ -44,6 +44,14 @@ POLICIES = gen.POLICIES
 PINNED_BASE_URL = "https://habitflame.vishutdhar.com"
 PINNED_ROBOTS_META = "index, follow, max-image-preview:large, max-snippet:-1"
 TITLE_LIMIT = 63
+# App facts, pinned here as well as in pages.json so a change to both at once
+# still has to touch this file. Sources in the app repository:
+# Constants.swift freeHabitLimit and freeNudgeMonthlyQuota,
+# PomodoroTimerService.swift durations, AchievementType.swift (16 badges),
+# and the App Store Connect product "Premium" at $9.99.
+PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "free_nudges_per_month": "3",
+                "pomodoro_work_minutes": "25", "pomodoro_short_break_minutes": "5",
+                "pomodoro_long_break_minutes": "15", "achievement_badges": "16"}
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
 PINNED_NAME = "HabitFlame"
 BRAND_URL = "https://freedom-terminal.com/"
@@ -219,6 +227,8 @@ check(SITE["base_url"] == PINNED_BASE_URL, f"site.base_url is {SITE['base_url']!
 check(BASE == PINNED_BASE_URL, f"generator base is {BASE!r}, pinned {PINNED_BASE_URL!r}")
 check(SITE["app_store_url"] == PINNED_APP_STORE_URL, f"site.app_store_url is {SITE['app_store_url']!r}, pinned {PINNED_APP_STORE_URL!r}")
 check(SITE["name"] == PINNED_NAME, f"site.name is {SITE['name']!r}, pinned {PINNED_NAME!r}")
+for key, value in PINNED_FACTS.items():
+    check(FACTS.get(key) == value, f"facts.{key} is {FACTS.get(key)!r}, pinned {value!r} from the app")
 
 # ---- 9. Minimum lists pages.json may extend but never shrink ----------------
 
@@ -314,7 +324,8 @@ try:
     vercelignore = (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines()
 except OSError:
     vercelignore = []
-check("/scripts/" in vercelignore, ".vercelignore: does not exclude /scripts/ from the deployment")
+ignore_rules = [l.strip() for l in vercelignore if l.strip() and not l.strip().startswith("#")]
+check(ignore_rules == ["/scripts/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/'] so nothing the site needs is left out")
 for f in sorted(ROOT.rglob("*.html")):
     rel_f = f.relative_to(ROOT)
     if rel_f.parts[0] in NOT_DEPLOYED or len(rel_f.parts) == 1:
@@ -1060,6 +1071,12 @@ for u in locs:
 POLICY = FRESH["privacy-policy.html"].split("<main", 1)[-1]
 for must in ("PostHog", "pairing service", "push notification", "Apple Health", "Screen recordings", "weekly count", "Nudges and reactions", SITE["contact_email"]):
     check(must in POLICY, f"privacy-policy.html: missing {must!r}")
+# Facts the corrected policy states, each checked against the app and the
+# relay migrations when it was written.
+for must in ("Session replay is turned off", "in your private iCloud database", "one-way hash of the habit's identifier",
+             "deleted 30 days later", "Share usage analytics", "when the app is started in the evening",
+             "the same on your devices that share an iCloud account"):
+    check(must in POLICY, f"privacy-policy.html: missing {must!r}")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
 # domain policy (partner activity relayed on every plan, Health data never
@@ -1075,6 +1092,11 @@ RETIRED_POLICY_SENTENCES = (
     # Health values sync through iCloud, replay is off, and the weekly count
     # carries one record per completion.
     "Health values stay on your device", "Session replay is turned on", "never individual habits",
+    # Retired when 4.5.3 shipped the analytics switch, and for overstating
+    # how the evening alert and the analytics identifier work.
+    "There is currently no switch in the app to turn analytics off", "a random identifier for your installation",
+    "one evening alert when a streak", "an evening streak-at-risk alert goes", "an evening warning when a streak",
+    "once a day in the evening, a streak-at-risk alert",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1089,7 +1111,9 @@ check(bool(push) and "have Premium and complete" in norm(re.sub(r"\s+", " ", pus
 # n. The support page does not tie iCloud sync to Premium.
 SUPPORT = FRESH["support.html"].split("<main", 1)[-1]
 for must in ("How do I add an accountability partner?", "I have an invite code. Where do I enter it?",
-             "How do I restore my purchase?", "Restore Purchases", f'href="mailto:{SITE["contact_email"]}"'):
+             "How do I restore my purchase?", "Restore Purchases", f'href="mailto:{SITE["contact_email"]}"',
+             # InviteCodeValidator.codeLength and InviteLinkService's 7 day expiry.
+             "the 6 character code", "An invite expires after 7 days"):
     check(must in SUPPORT, f"support.html: missing {must!r} from the visible page")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
