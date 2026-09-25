@@ -157,7 +157,7 @@
           "React to a completion that reaches them, which shows up in your activity feed.",
           "Keep their own habits in the same app, so the accountability runs both ways."
         ]},
-        {"p": "Free accounts can send 3 nudges a month, enough to feel the feature. Premium removes the limit, so a partner who wants to poke you every evening can."},
+        {"p": "Free accounts can send 3 nudges a month, enough to feel the feature. Premium removes the monthly limit, so a partner who wants to poke you every evening can. On any plan, nudges to the same partner are spaced at least half a day apart."},
         {"h2": "Real-time updates"},
         {"p": "With Premium, real-time partner updates send your partner an instant notification the moment you complete a shared habit, plus a milestone alert when a streak milestone is crossed and, when you start the app in the evening, one alert if a streak of 3 or more days is at risk. Your partner does not need Premium to receive them, and their feed, partner widget and streak view for you fill in from them. Without Premium on your side, your partner is not told about individual completions; they see the combined weekly count for the two of you, and your nudges."},
         {"h2": "The partner widget"},
@@ -175,7 +175,7 @@
           "rows": [
             ["Habits", "5", "Unlimited"],
             ["Pairing, reactions and nudges", "Included", "Included"],
-            ["Partner nudges", "3 a month", "Unlimited"],
+            ["Partner nudges", "3 a month", "No monthly limit"],
             ["Real-time partner updates", "No", "Yes"],
             ["What your partner sees of you", "A combined weekly count", "Each shared completion for today made in the app, as it happens, milestones, streak at risk"],
             ["Habit stacking", "No", "Yes"],
@@ -210,7 +210,7 @@
         {"p": "Reaching a milestone streak gets a celebration on screen. The milestones are 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days. The early ones come fast on purpose: the first week is where most habits die, so the app makes a point of marking it."},
         {"p": "Alongside streaks there are 16 achievement badges for things like your first completed week, a perfect month or a long run on a single habit. They live on the stats screen and fill in over time."},
         {"h2": "Seeing the whole year"},
-        {"p": "The stats tab has a full year grid, one square per day, coloured by how much of your day you completed. A weekly chart and monthly completion rates show how you are doing, and each habit has its own history with current and longest streak. It is the view people screenshot at the end of the year."},
+        {"p": "The stats tab has a full year grid, one square per day, coloured by how much of your day you completed. A weekly chart and a seven day completion rate show how you are doing, and each habit has its own history with current and longest streak. It is the view people screenshot at the end of the year."},
         {"h2": "Streaks on the home screen"},
         {"p": "Home screen and lock screen widgets show today's habits, your progress for the day and your current streaks, and home screen widgets let you complete a habit without opening the app. On a day when you are about to break a long streak, that number on the home screen is the reminder that works. A habit completed from a widget counts for your streak and the weekly count, but sends your partner no alert."},
         {"h2": "A streak someone else can see"},
@@ -383,7 +383,7 @@
         {"p": "Keep each habit specific enough that there is no doubt about whether it happened. A count habit for glasses of water, or 25 minutes of reading as a duration habit, leaves no room for argument. A habit like be healthier cannot be ticked honestly on any day, so it quietly stops being tracked."},
         {"p": "On a day when everything goes wrong, do the smallest honest version of each habit rather than skipping it. A short walk is still a walk, and it keeps you in the rhythm of showing up."},
         {"h2": "Seeing the pattern"},
-        {"p": "Every completion feeds the stats tab: weekly and monthly completion rates, a full year grid with one square per day, and current and longest streaks for each habit. Milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days get a celebration, and 16 achievement badges fill in over time. Premium adds smart insights, which look at your history on the device and point out your most consistent and most fragile habits, your best day for each habit and weekday versus weekend patterns."},
+        {"p": "Every completion feeds the stats tab: a weekly chart, a seven day completion rate, a full year grid with one square per day, and current and longest streaks for each habit. Milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days get a celebration, and 16 achievement badges fill in over time. Premium adds smart insights, which look at your history on the device and point out your most consistent and most fragile habits, your best day for each habit and weekday versus weekend patterns."},
         {"h2": "Free and Premium"},
         {"p": "Reminders, the Today view, widgets, all four tracking types, streaks, the focus timer, iCloud sync and an accountability partner are all free, for up to 5 habits. Premium is a one-time $9.99 purchase, not a subscription, and adds unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited partner nudges."},
         {"faq": [
@@ -428,7 +428,7 @@
           "A Pomodoro focus timer with 25 minute sessions, 5 minute short breaks and a 15 minute long break.",
           "Home screen and lock screen widgets, including a partner widget, with completion from the home screen widget.",
           "Streak milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days, and 16 achievement badges.",
-          "A stats tab with weekly and monthly completion rates and a full year grid.",
+          "A stats tab with a weekly chart, a seven day completion rate and a full year grid.",
           "Four tracking types: yes or no, count, duration and multi check-in for habits done 2 to 4 times a day.",
           "Reminders whose wording changes, Apple Health and iCloud sync."
         ]},

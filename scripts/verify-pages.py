@@ -1105,7 +1105,8 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "the same on your devices that share an iCloud account",
              "automatically through your iCloud account", "request counters for each IP address, pairing and device",
              "for a reaction the name of the habit you reacted to", "keeps a record of the invite used for the move with no end date",
-             "Analytics never receives Health measurements", "the iOS keychain on this device only"):
+             "Analytics never receives Health measurements", "the iOS keychain on this device only",
+             "Once the pairing service receives the request", "while you are online"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1145,6 +1146,7 @@ RETIRED_POLICY_SENTENCES = (
     "either automatically through your iCloud account or with a code",
     "and phone numbers are removed from event details", "Premium is bought per person",
     "purchase per person", "on the side of whoever buys it", "Real-time partner updates are bought by",
+    "monthly completion rates", "<p>When you remove a partner, the device records for that pairing",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
