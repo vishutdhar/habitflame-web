@@ -1097,6 +1097,11 @@ RETIRED_POLICY_SENTENCES = (
     "There is currently no switch in the app to turn analytics off", "a random identifier for your installation",
     "one evening alert when a streak", "an evening streak-at-risk alert goes", "an evening warning when a streak",
     "once a day in the evening, a streak-at-risk alert",
+    # Unshared habits still add to the weekly count, which shows each
+    # person's total; widget completions are not sent to a partner.
+    "is invisible to your partner", "Anything not shared is invisible", "Habits you do not share are never sent",
+    "every habit you share and complete is sent", "each of your shared completions instantly",
+    "Every shared completion as it happens",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1113,7 +1118,8 @@ SUPPORT = FRESH["support.html"].split("<main", 1)[-1]
 for must in ("How do I add an accountability partner?", "I have an invite code. Where do I enter it?",
              "How do I restore my purchase?", "Restore Purchases", f'href="mailto:{SITE["contact_email"]}"',
              # InviteCodeValidator.codeLength and InviteLinkService's 7 day expiry.
-             "the 6 character code", "An invite expires after 7 days"):
+             "the 6 character code", "An invite expires after 7 days",
+             "Open the Partners tab and send an invite link", "choose Have a code and type"):
     check(must in SUPPORT, f"support.html: missing {must!r} from the visible page")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
@@ -1167,6 +1173,7 @@ except (OSError, ValueError, KeyError, TypeError) as e:
     failures.append(f"apple-app-site-association: {type(e).__name__}: {e}")
 check((ROOT / "invite.html").is_file(), "invite.html: missing")
 check((ROOT / "styles.css").is_file(), "styles.css: missing; the invite page uses it")
+check("redirects" not in VERCEL, "vercel.json: redirects can move a page or the invite path; the site uses none")
 for rd in VERCEL.get("redirects", []) + [r for r in VERCEL.get("rewrites", []) if r.get("source") != "/invite/:code"]:
     src = rd.get("source", "")
     check(not (src.startswith("/invite") or src.startswith("/.well-known") or src.startswith("/(") or src.startswith("/:")),
@@ -1175,6 +1182,11 @@ try:
     INVITE = (ROOT / "invite.html").read_text(encoding="utf-8")
 except OSError:
     INVITE = ""
+# The invite page's own flow: it reads the code from the path and builds the
+# app deep link from it.
+for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
+               'href="https://apps.apple.com/app/id6756961710"'):
+    check(marker in INVITE, f"invite.html: missing {marker!r}")
 for m in re.finditer(r'(?:href|src)="(/[^"#?]*)', INVITE):
     path_part = m.group(1).lstrip("/")
     target = ROOT / ("index.html" if path_part == "" else path_part)
