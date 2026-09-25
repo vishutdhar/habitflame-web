@@ -52,7 +52,7 @@ TITLE_LIMIT = 63
 # and the App Store Connect product "Premium" at $9.99.
 PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "free_nudges_per_month": "3",
                 "pomodoro_work_minutes": "25", "pomodoro_short_break_minutes": "5",
-                "pomodoro_long_break_minutes": "15", "achievement_badges": "16"}
+                "pomodoro_long_break_minutes": "15", "achievement_badges": "16", "multi_checkin_range": ["2", "4"]}
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
 PINNED_NAME = "HabitFlame"
 BRAND_URL = "https://freedom-terminal.com/"
@@ -759,6 +759,8 @@ for page, rel in HTML_PAGES:
     check(meta(root, "name", "robots") == PINNED_ROBOTS_META, f"{rel}: robots meta is {meta(root, 'name', 'robots')!r}, want {PINNED_ROBOTS_META!r}")
     check(meta(root, "property", "og:site_name") == PINNED_NAME, f"{rel}: og:site_name is not {PINNED_NAME}")
     check(meta(root, "property", "og:locale") == "en_US", f"{rel}: og:locale is not en_US")
+    for key, attr in (("og:image", "property"), ("twitter:image", "name")):
+        check(meta(root, attr, key) == f"{PINNED_BASE_URL}/app-icon.png", f"{rel}: {key} is {meta(root, attr, key)!r}")
     check(len(by_tag(root, "h1")) == 1, f"{rel}: expected exactly one h1")
     dts = [n.text() for n in by_tag(root, "dt")]
     dds = [n.text() for n in by_tag(root, "dd")]
@@ -811,6 +813,8 @@ for page, rel in HTML_PAGES:
         if g.get("@type") == "SoftwareApplication":
             check(g.get("url") == PINNED_APP_STORE_URL, f"{rel}: SoftwareApplication url is not the pinned App Store URL")
             check("review" not in g and "aggregateRating" not in g, f"{rel}: SoftwareApplication carries ratings")
+            check(g.get("offers") == {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+                  f"{rel}: SoftwareApplication offer is {g.get('offers')}, want the free download")
 
     # g. Word counts.
     if kind == "policy":
@@ -1072,16 +1076,29 @@ for u in locs:
 # Visible markup only: the JSON-LD in the head could repeat a phrase the
 # visible page lost.
 POLICY = FRESH["privacy-policy.html"].split("<main", 1)[-1]
+
+
+def visible_main(rel: str) -> tuple[str, list]:
+    """The main element's visible text (scripts, styles and comments are not
+    text) and its links, parsed rather than searched as markup."""
+    main_node = first(parse(FRESH[rel]), lambda n: n.tag == "main")
+    if main_node is None:
+        return "", []
+    return norm(main_node.text()), [n.attrs.get("href", "") for n in main_node.walk() if n.tag == "a"]
+
+
+POLICY_TEXT, POLICY_LINKS = visible_main("privacy-policy.html")
 for must in ("PostHog", "pairing service", "push notification", "Apple Health", "Screen recordings", "weekly count", "Nudges and reactions", SITE["contact_email"]):
-    check(must in POLICY, f"privacy-policy.html: missing {must!r}")
+    check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Facts the corrected policy states, each checked against the app and the
 # relay migrations when it was written.
 for must in ("Session replay is turned off", "in your private iCloud database", "one-way hash of the habit's identifier",
-             "deleted 30 days later", "Share usage analytics", "when the app is started in the evening",
+             "eligible for deletion 30 days later", "Share usage analytics", "when the app is started in the evening",
              "the same on your devices that share an iCloud account",
              "automatically through your iCloud account", "request counters for each IP address, pairing and device",
-             "for a reaction the name of the habit you reacted to"):
-    check(must in POLICY, f"privacy-policy.html: missing {must!r}")
+             "for a reaction the name of the habit you reacted to", "For every invite, the pairing service also keeps a permanent record",
+             "Analytics never receives Health measurements"):
+    check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
 # domain policy (partner activity relayed on every plan, Health data never
@@ -1112,6 +1129,8 @@ RETIRED_POLICY_SENTENCES = (
     "The wording varies from day to day", "keeps a small record of that code",
     "never a habit name.", "Weekly and monthly charts", "so a habit set to weekdays does not ring on Saturday.",
     "nothing your partner can see beyond what you chose to share.",
+    "Analytics receives only the type of a habit", "and its record is removed 30 days after it expires",
+    "marked as removed, and deleted 30 days later",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1125,12 +1144,14 @@ check(bool(push) and "have Premium and complete" in norm(re.sub(r"\s+", " ", pus
 
 # n. The support page does not tie iCloud sync to Premium.
 SUPPORT = FRESH["support.html"].split("<main", 1)[-1]
+SUPPORT_VISIBLE, SUPPORT_LINKS = visible_main("support.html")
+check(f"mailto:{SITE['contact_email']}" in SUPPORT_LINKS, "support.html: no visible mailto link to the contact address")
 for must in ("How do I add an accountability partner?", "I have an invite code. Where do I enter it?",
-             "How do I restore my purchase?", "Restore Purchases", f'href="mailto:{SITE["contact_email"]}"',
+             "How do I restore my purchase?", "Restore Purchases",
              # InviteCodeValidator.codeLength and InviteLinkService's 7 day expiry.
              "the 6 character code", "An invite expires after 7 days",
              "Open the Partners tab and send an invite link", "choose Have a code and type"):
-    check(must in SUPPORT, f"support.html: missing {must!r} from the visible page")
+    check(must in SUPPORT_VISIBLE, f"support.html: missing {must!r} from the visible page")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
                        "With Premium, iCloud sync keeps your habits in sync across all your iPhone and iPad devices.",
@@ -1161,6 +1182,8 @@ try:
 except (OSError, ValueError) as e:
     VERCEL = {}
     failures.append(f"vercel.json: does not parse: {e}")
+check(sorted(VERCEL) == ["cleanUrls", "headers", "rewrites", "trailingSlash"],
+      f"vercel.json: keys are {sorted(VERCEL)}; a new key such as outputDirectory can change what is deployed")
 check(VERCEL.get("cleanUrls") is True, "vercel.json: cleanUrls is not true")
 check(VERCEL.get("trailingSlash") is False, "vercel.json: trailingSlash is not false")
 check({"source": "/invite/:code", "destination": "/invite"} in VERCEL.get("rewrites", []), "vercel.json: the /invite/:code rewrite is missing")
