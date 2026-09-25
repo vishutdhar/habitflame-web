@@ -1079,7 +1079,8 @@ for must in ("PostHog", "pairing service", "push notification", "Apple Health", 
 for must in ("Session replay is turned off", "in your private iCloud database", "one-way hash of the habit's identifier",
              "deleted 30 days later", "Share usage analytics", "when the app is started in the evening",
              "the same on your devices that share an iCloud account",
-             "automatically through your iCloud account", "a request counter for each IP address"):
+             "automatically through your iCloud account", "request counters for each IP address, pairing and device",
+             "for a reaction the name of the habit you reacted to"):
     check(must in POLICY, f"privacy-policy.html: missing {must!r}")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1109,6 +1110,8 @@ RETIRED_POLICY_SENTENCES = (
     "A habit completed from a widget is not sent to your partner", "counts for your streak but is not sent",
     "so the message on Tuesday is not the message from Monday", "wording changes from day to day",
     "The wording varies from day to day", "keeps a small record of that code",
+    "never a habit name.", "Weekly and monthly charts", "so a habit set to weekdays does not ring on Saturday.",
+    "nothing your partner can see beyond what you chose to share.",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1196,6 +1199,14 @@ except OSError:
 # The invite page is hand written and outside the generator. Its bytes are
 # pinned so a change to its code parsing or deep link is a deliberate edit
 # here too; update the hash only after testing the invite flow on a device.
+# The association file and the invite page's stylesheet are pinned the same
+# way: Apple reads the components in order, so an added exclusion would stop
+# invite links opening the app while every presence check still passed.
+AASA_SHA256 = "338141d1c33ec3d86900cad72371a18e08a8ce2c274a7d66ed5b49514ef75968"
+STYLES_SHA256 = "cddd47efbf35d2dc2fbcbac907539486ef327929b41a9b47dc2817f8bdc1d0b6"
+for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
+    here = ROOT / name
+    check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
 INVITE_SHA256 = "8146db30a41140f7ae036539acee9bfb0f59a94ffd3e8f0eef9c1bba6471c184"
 check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
