@@ -52,7 +52,9 @@ TITLE_LIMIT = 63
 # and the App Store Connect product "Premium" at $9.99.
 PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "free_nudges_per_month": "3",
                 "pomodoro_work_minutes": "25", "pomodoro_short_break_minutes": "5",
-                "pomodoro_long_break_minutes": "15", "achievement_badges": "16", "multi_checkin_range": ["2", "4"]}
+                "pomodoro_long_break_minutes": "15", "achievement_badges": "16", "multi_checkin_range": ["2", "4"],
+                # Constants.swift streakMilestones.
+                "streak_milestones": ["7", "14", "21", "30", "50", "75", "100", "150", "200", "365", "500", "1000"]}
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
 PINNED_NAME = "HabitFlame"
 BRAND_URL = "https://freedom-terminal.com/"
@@ -1084,7 +1086,13 @@ def visible_main(rel: str) -> tuple[str, list]:
     main_node = first(parse(FRESH[rel]), lambda n: n.tag == "main")
     if main_node is None:
         return "", []
-    return norm(main_node.text()), [n.attrs.get("href", "") for n in main_node.walk() if n.tag == "a"]
+    def hidden(n) -> bool:
+        return "hidden" in n.attrs or n.attrs.get("aria-hidden") == "true" or "display:none" in (n.attrs.get("style") or "").replace(" ", "")
+    if hidden(main_node) or any(hidden(a) for a in main_node.ancestors()):
+        return "", []
+    links = [n.attrs.get("href", "") for n in main_node.walk()
+             if n.tag == "a" and not hidden(n) and not any(hidden(a) for a in n.ancestors())]
+    return norm(main_node.text(skip=hidden)), links
 
 
 POLICY_TEXT, POLICY_LINKS = visible_main("privacy-policy.html")
@@ -1097,7 +1105,7 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "the same on your devices that share an iCloud account",
              "automatically through your iCloud account", "request counters for each IP address, pairing and device",
              "for a reaction the name of the habit you reacted to", "For every invite, the pairing service also keeps a permanent record",
-             "Analytics never receives Health measurements"):
+             "Analytics never receives Health measurements", "the iOS keychain on this device only"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1131,6 +1139,8 @@ RETIRED_POLICY_SENTENCES = (
     "nothing your partner can see beyond what you chose to share.",
     "Analytics receives only the type of a habit", "and its record is removed 30 days after it expires",
     "marked as removed, and deleted 30 days later",
+    "gets a different message each day", "it schedules a different message for each of the coming days",
+    "Deleting the app removes the data stored on your device. It does not",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
