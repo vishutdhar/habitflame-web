@@ -1104,7 +1104,7 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "eligible for deletion 30 days later", "Share usage analytics", "when the app is started in the evening",
              "the same on your devices that share an iCloud account",
              "automatically through your iCloud account", "request counters for each IP address, pairing and device",
-             "for a reaction the name of the habit you reacted to", "For every invite, the pairing service also keeps a permanent record",
+             "for a reaction the name of the habit you reacted to", "keeps a record of the invite used for the move with no end date",
              "Analytics never receives Health measurements", "the iOS keychain on this device only"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
@@ -1141,6 +1141,8 @@ RETIRED_POLICY_SENTENCES = (
     "marked as removed, and deleted 30 days later",
     "gets a different message each day", "it schedules a different message for each of the coming days",
     "Deleting the app removes the data stored on your device. It does not",
+    "For every invite, the pairing service also keeps a permanent record",
+    "either automatically through your iCloud account or with a code",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1202,6 +1204,10 @@ check(VERCEL.get("rewrites") == [{"source": "/invite/:code", "destination": "/in
 headers = {h.get("source"): {x.get("key", "").lower(): x.get("value") for x in h.get("headers", [])} for h in VERCEL.get("headers", [])}
 check(headers.get("/.well-known/apple-app-site-association", {}).get("content-type") == "application/json",
       "vercel.json: the association file is not served as application/json")
+check(headers == {"/.well-known/apple-app-site-association": {"content-type": "application/json"},
+                  "/assets/(.*)": {"cache-control": "public, max-age=31536000, immutable"}},
+      f"vercel.json: header rules are {headers}; an added rule such as X-Robots-Tag can block indexing")
+check(len(VERCEL.get("headers", [])) == 2, "vercel.json: header rules must not repeat a source")
 asset_cache = headers.get("/assets/(.*)", {}).get("cache-control", "")
 check(asset_cache == "public, max-age=31536000, immutable", f"vercel.json: /assets cache-control is {asset_cache!r}")
 check(not any(src != "/assets/(.*)" and "cache-control" in hs for src, hs in headers.items()),
