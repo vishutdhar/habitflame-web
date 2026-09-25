@@ -1113,7 +1113,8 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "Once the pairing service receives the request", "while you are online",
              "Those recordings are deleted 30 days after they were made", "your IP address",
              "From version 4.5.3, you can turn analytics off", "Before it was turned off, PostHog could record sessions",
-             "An invite nobody accepts is deleted the next time the pairing service runs its cleanup"):
+             "An invite nobody accepts is deleted the next time the pairing service runs its cleanup",
+             "These counters are not deleted"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1155,6 +1156,8 @@ RETIRED_POLICY_SENTENCES = (
     "purchase per person", "on the side of whoever buys it", "Real-time partner updates are bought by",
     "monthly completion rates", "<p>When you remove a partner, the device records for that pairing",
     "the pairing service stores your display name, your device's push token",
+    "the two of you are paired. If they do not have the app yet, the link takes them",
+    "the link sends them to the App Store first",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1184,7 +1187,8 @@ for must in ("How do I add an accountability partner?", "I have an invite code. 
              "How do I restore my purchase?", "Restore Purchases",
              # InviteCodeValidator.codeLength and InviteLinkService's 7 day expiry.
              "the 6 character code", "An invite expires after 7 days",
-             "Open the Partners tab and send an invite link", "choose Have a code and type"):
+             "Open the Partners tab and send an invite link", "choose Have a code and type",
+             "the app shows your invite and they tap Accept"):
     check(must in SUPPORT_VISIBLE, f"support.html: missing {must!r} from the visible page")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
@@ -1229,7 +1233,10 @@ check(headers.get("/.well-known/apple-app-site-association", {}).get("content-ty
 check(headers == {"/.well-known/apple-app-site-association": {"content-type": "application/json"},
                   "/assets/(.*)": {"cache-control": "public, max-age=31536000, immutable"}},
       f"vercel.json: header rules are {headers}; an added rule such as X-Robots-Tag can block indexing")
-check(len(VERCEL.get("headers", [])) == 2, "vercel.json: header rules must not repeat a source")
+check(VERCEL.get("headers") == [
+    {"source": "/.well-known/apple-app-site-association", "headers": [{"key": "content-type", "value": "application/json"}]},
+    {"source": "/assets/(.*)", "headers": [{"key": "cache-control", "value": "public, max-age=31536000, immutable"}]},
+], "vercel.json: header rules differ from the pinned rules (a condition such as has or missing would make them conditional)")
 asset_cache = headers.get("/assets/(.*)", {}).get("cache-control", "")
 check(asset_cache == "public, max-age=31536000, immutable", f"vercel.json: /assets cache-control is {asset_cache!r}")
 check(not any(src != "/assets/(.*)" and "cache-control" in hs for src, hs in headers.items()),
