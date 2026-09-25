@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://habitflame.vishutdhar.com/sitemap.xml
