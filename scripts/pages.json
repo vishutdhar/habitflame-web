@@ -90,7 +90,7 @@
       {"q": "Is HabitFlame free?", "a": "Yes. The free version tracks up to 5 habits with every tracking type, streaks, badges, widgets, reminders, the focus timer, iCloud sync, Apple Health and an accountability partner with 3 nudges a month. Premium is a one-time purchase of $9.99 that removes the habit limit and adds habit stacking, smart insights, real-time partner updates and unlimited nudges."},
       {"q": "Do I need an account?", "a": "No. HabitFlame works the moment you open it. Your habits are stored on your device and in your own iCloud. With Premium, the shared habits you complete are delivered to your partner through HabitFlame's pairing service and Apple push notifications. Without Premium, the service carries your nudges and your reactions, which name the habit you react to, and, for the weekly count, the day of each completion with a one-way hash of the habit's identifier and no habit name. What pairing itself stores is set out in the [privacy policy](privacy-policy). Pairing with a partner uses an invite link, not a username or password."},
       {"q": "Which devices does it run on?", "a": "HabitFlame is an iPhone and iPad app from the App Store. There is no Android or web version."},
-      {"q": "Does my partner need to pay?", "a": "No. Pairing, reactions and nudges are free for both of you. Real-time partner updates are bought by the person whose completions are sent: if you have Premium, your partner gets each shared habit you complete in the app for today instantly without paying. With both of you on the free version, you see a combined weekly count of what you completed and can nudge each other."}
+      {"q": "Does my partner need to pay?", "a": "No. Pairing, reactions and nudges are free for both of you. Real-time partner updates depend on Premium on the side of the person whose completions are sent: if you have Premium, your partner gets each shared habit you complete in the app for today instantly without paying. With both of you on the free version, you see a combined weekly count of what you completed and can nudge each other."}
     ]
   },
   "policies": [
@@ -315,7 +315,7 @@
           "Reactions on completions that reach you, so a finished workout gets a well done.",
           "Nudges, which arrive as a notification."
         ]},
-        {"p": "Free accounts can send 3 nudges a month each. Premium makes nudges unlimited on the side of whoever buys it, so an evening reminder from your partner can be a daily thing."},
+        {"p": "Free accounts can send 3 nudges a month each. Premium makes nudges unlimited on the side of whoever has it, so an evening reminder from your partner can be a daily thing."},
         {"h2": "The moment it happens"},
         {"p": "With Premium, real-time partner updates send your partner an instant notification when you complete a shared habit. If you are trying to build the same habit at the same time, say a morning walk, that ping is the small competitive nudge that gets the second person out of the door. With both of you on the free version, you see the combined weekly count for the pair, updated when you open the app, and you can nudge each other."},
         {"h2": "Habits that work well for two"},
@@ -339,9 +339,9 @@
         ]},
         {"p": "If one of you loses interest, that is fine too. Either person can remove the partner from the Partners tab, and each of you keeps your own tracker and history."},
         {"h2": "Cost for two people"},
-        {"p": "Both of you can use the free version, which includes 5 habits each, all tracking types, streaks, widgets, the timer and pairing with 3 nudges a month. Premium is a one-time $9.99 purchase per person, not a subscription, and adds unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited nudges. If one of you buys Premium, that person's completions arrive on the other's phone instantly; the free partner's show only in the combined weekly count."},
+        {"p": "Both of you can use the free version, which includes 5 habits each, all tracking types, streaks, widgets, the timer and pairing with 3 nudges a month. Premium is a one-time $9.99 purchase, not a subscription, and adds unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited nudges. With Family Sharing, one purchase also unlocks Premium for the people in your Apple family. If one of you buys Premium, that person's completions arrive on the other's phone instantly; the free partner's show only in the combined weekly count."},
         {"faq": [
-          {"q": "Do both of us need to pay?", "a": "No. Pairing and nudges are free for both. Premium is bought per person and controls whose completions are sent: the buyer's completions reach the other instantly, whether or not the other person has Premium."},
+          {"q": "Do both of us need to pay?", "a": "No. Pairing and nudges are free for both. Premium controls whose completions are sent: the completions of the person with Premium reach the other instantly, whether or not the other person has Premium. If you are in the same Apple family, Family Sharing lets one purchase unlock Premium for both of you."},
           {"q": "Can we share the same habit?", "a": "You each create the habit on your own phone and share it with the other. Each person keeps their own streak, and with Premium each of you sees the other's completions as they happen."},
           {"q": "Can I keep some habits private from my partner?", "a": "Yes. You choose which habits to share with each partner. A habit you do not share is never named or shown to them; its completions only add to the weekly count."},
           {"q": "What if we break up or stop sharing?", "a": "Either person can remove the partner from the Partners tab. Your own habits and history stay on your phone."},

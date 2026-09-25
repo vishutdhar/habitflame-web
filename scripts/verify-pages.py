@@ -1143,6 +1143,8 @@ RETIRED_POLICY_SENTENCES = (
     "Deleting the app removes the data stored on your device. It does not",
     "For every invite, the pairing service also keeps a permanent record",
     "either automatically through your iCloud account or with a code",
+    "and phone numbers are removed from event details", "Premium is bought per person",
+    "purchase per person", "on the side of whoever buys it", "Real-time partner updates are bought by",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1153,6 +1155,16 @@ for rel, text in retired_scan.items():
 push = re.search(r"<h2>Push notifications</h2>(.*?)<h2>", POLICY, re.S)
 check(bool(push) and "have Premium and complete" in norm(re.sub(r"\s+", " ", push.group(1) if push else "")),
       "privacy-policy.html: the Push notifications section does not say 'have Premium and complete'")
+
+# j2. The terms keep every section; an empty or shortened fragment fails.
+TERMS_SECTIONS = ["Agreement to Terms", "Description of Service", "Accountability Partners", "User Responsibilities",
+                  "Intellectual Property", "In-App Purchases", "Disclaimer of Warranties", "Limitation of Liability",
+                  "Data Loss", "Modifications to Service", "Changes to Terms", "Governing Law", "Contact Us"]
+terms_main = first(parse(FRESH["terms-of-service.html"]), lambda n: n.tag == "main")
+terms_h2 = [n.text() for n in by_tag(terms_main, "h2")] if terms_main else []
+check(terms_h2 == TERMS_SECTIONS, f"terms-of-service.html: sections are {terms_h2}")
+terms_words = len(re.findall(r"\S*[A-Za-z0-9]\S*", terms_main.text())) if terms_main else 0
+check(terms_words >= 400, f"terms-of-service.html: main has {terms_words} words, want at least 400")
 
 # n. The support page does not tie iCloud sync to Premium.
 SUPPORT = FRESH["support.html"].split("<main", 1)[-1]
