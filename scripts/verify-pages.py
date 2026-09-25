@@ -1023,6 +1023,8 @@ def baseline_ref() -> "str | None":
 
 
 BASELINE = baseline_ref()
+_dirty = git("status", "--porcelain", "--", "scripts") or b""
+EDIT_DATE = TODAY if _dirty.strip() else (git("log", "-1", "--format=%cd", "--date=short", "HEAD") or b"").decode().strip()
 skip_lines: list[str] = []
 if BASELINE is None:
     skip_lines.append("policy-date history check skipped: no baseline ref")
@@ -1053,8 +1055,10 @@ else:
         if here == git("show", f"{BASELINE}:{rel_path}"):
             check(conf == before, f"{rel_path}: unchanged from {BASELINE} but lastmod moved from {before} to {conf}")
         else:
-            # A second change on the day the baseline was dated keeps today's date.
-            check(conf > before or conf == before == TODAY,
+            # A later change made on the same day the baseline was dated keeps
+            # that date: the edit date is the HEAD commit's date, or today
+            # while the change is uncommitted.
+            check(conf > before or conf == before == EDIT_DATE,
                   f"{rel_path}: changed from {BASELINE} but lastmod {conf} is not later than {before}")
     for name in POLICY_NAMES:
         on_base = git("show", f"{BASELINE}:{name}")
@@ -1106,7 +1110,10 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "automatically through your iCloud account", "request counters for each IP address, pairing and device",
              "for a reaction the name of the habit you reacted to", "keeps a record of the invite used for the move with no end date",
              "Analytics never receives Health measurements", "the iOS keychain on this device only",
-             "Once the pairing service receives the request", "while you are online"):
+             "Once the pairing service receives the request", "while you are online",
+             "Those recordings are deleted 30 days after they were made", "your IP address",
+             "From version 4.5.3, you can turn analytics off", "Before it was turned off, PostHog could record sessions",
+             "An invite nobody accepts is deleted the next time the pairing service runs its cleanup"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1147,6 +1154,7 @@ RETIRED_POLICY_SENTENCES = (
     "and phone numbers are removed from event details", "Premium is bought per person",
     "purchase per person", "on the side of whoever buys it", "Real-time partner updates are bought by",
     "monthly completion rates", "<p>When you remove a partner, the device records for that pairing",
+    "the pairing service stores your display name, your device's push token",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
