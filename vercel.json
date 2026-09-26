@@ -1,5 +1,6 @@
 {
   "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     { "source": "/invite/:code", "destination": "/invite" }
   ],
@@ -8,6 +9,12 @@
       "source": "/.well-known/apple-app-site-association",
       "headers": [
         { "key": "content-type", "value": "application/json" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "cache-control", "value": "public, max-age=31536000, immutable" }
       ]
     }
   ]
