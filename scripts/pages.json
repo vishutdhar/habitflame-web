@@ -159,7 +159,7 @@
         ]},
         {"p": "Free accounts can send 3 nudges a month, enough to feel the feature. Premium removes the monthly limit, so a partner who wants to poke you every evening can. On any plan, nudges to the same partner are spaced at least half a day apart."},
         {"h2": "Real-time updates"},
-        {"p": "With Premium, real-time partner updates send your partner an instant notification the moment you complete a shared habit, plus a milestone alert when a streak milestone is crossed and, when you start the app in the evening, one alert if a streak of 3 or more days on a habit that runs every day or on specific days is at risk. Your partner does not need Premium to receive them, and their feed, partner widget and streak view for you fill in from them. Without Premium on your side, your partner is not told about individual completions; they see the combined weekly count for the two of you, and your nudges."},
+        {"p": "With Premium, real-time partner updates send your partner an instant notification the moment you complete a shared habit, plus a milestone alert when a streak lands exactly on a milestone and, when you start the app in the evening, one alert if a streak of 3 or more days on a habit that runs every day or on specific days is at risk. Your partner does not need Premium to receive them, and their feed, partner widget and streak view for you fill in from them. Without Premium on your side, your partner is not told about individual completions; they see the combined weekly count for the two of you, and your nudges."},
         {"h2": "The partner widget"},
         {"p": "A home screen widget shows how your partner's day is going next to your own. It fills in from the updates a Premium partner sends, so it only fills in when the person you are watching has Premium."},
         {"h2": "What stays private"},
@@ -189,7 +189,7 @@
           {"q": "Does my accountability partner need to buy Premium?", "a": "No. Premium is needed on the side of the person whose completions are sent. If you buy it, your partner receives your updates without paying. If only one of you has Premium, that person's completions arrive instantly and the other person's show only in the combined weekly count."},
           {"q": "Can I have more than one accountability partner?", "a": "Yes. You can pair with several people and choose which habits each of them can follow."},
           {"q": "What does my partner see?", "a": "With Premium on your side, whether each shared habit is done today, your streak on it and milestone and streak-at-risk alerts. Without it, a combined weekly count of what you both completed, plus your nudges. Habits you do not share are never named or shown to your partner; their completions only add to the weekly count."},
-          {"q": "Does my partner have to be on iPhone or iPad?", "a": "Yes. HabitFlame is an iPhone and iPad app, so both people need an iPhone or iPad with the app installed."},
+          {"q": "Does my partner have to be on iPhone or iPad?", "a": "Both people need an Apple device with the app installed. HabitFlame is built for iPhone and iPad, so an iPhone or iPad is the device it is made for."},
           {"q": "What happens if my partner does not open the invite?", "a": "Nothing changes on your side. Your habits keep tracking as normal, and you can resend the link or invite someone else."}
         ]}
       ]
@@ -417,7 +417,7 @@
           "Both are free to download and use."
         ]},
         {"h2": "Platforms"},
-        {"p": "HabitShare is on the App Store for iPhone and iPad and on Google Play for Android, so a pair with one iPhone and one Android phone can use it together. HabitFlame is an iPhone and iPad app only, and both partners need to be on an Apple device. That single fact decides it for a lot of couples and friends, so it comes first."},
+        {"p": "HabitShare is on the App Store for iPhone and iPad and on Google Play for Android, so a pair with one iPhone and one Android phone can use it together. HabitFlame is built for iPhone and iPad, and both partners need to be on an Apple device. That single fact decides it for a lot of couples and friends, so it comes first."},
         {"h2": "Price"},
         {"p": "HabitShare is free and lists no in-app purchases on the App Store. HabitFlame is free for up to 5 habits with the partner, streaks, widgets, reminders and the focus timer included, and Premium is a one-time purchase of $9.99 that adds unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited partner nudges. There is no subscription in HabitFlame, and both partners can stay on the free version."},
         {"h2": "How sharing works"},
@@ -465,7 +465,7 @@
         {"faq": [
           {"q": "Is HabitFlame free like HabitShare?", "a": "HabitFlame is free for up to 5 habits, including the partner feature, streaks, widgets, reminders and the focus timer. Sending each shared completion to your partner needs Premium. Premium is a one-time $9.99 purchase for unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited nudges. HabitShare is free with no paid tier listed."},
           {"q": "Does HabitFlame have messaging like HabitShare?", "a": "No. HabitFlame keeps the partner feature to reactions and nudges, and leaves the conversation to wherever you already talk. HabitShare includes messaging and comments."},
-          {"q": "Can a friend without an iPhone pair with me in HabitFlame?", "a": "Only with an iPhone or iPad. HabitFlame runs on those two devices, so both people need one. HabitShare has an Android version."},
+          {"q": "Can a friend without an iPhone pair with me in HabitFlame?", "a": "Only on an Apple device. HabitFlame is built for iPhone and iPad, and HabitShare has an Android version."},
           {"q": "Can I use both apps?", "a": "Yes. Nothing stops you from tracking in one and sharing in the other, though most people settle on one so the streak lives in one place."}
         ]}
       ]

@@ -771,6 +771,11 @@ for page, rel in HTML_PAGES:
     check(url == PINNED_BASE_URL + "/" or not (url.endswith("/") or url.endswith(".html")),
           f"{rel}: page URL {url} is not the clean form Vercel serves")
     check(meta(root, "property", "og:url") == canon_href, f"{rel}: og:url is not byte equal to the canonical")
+    # Every robots style directive on the page: exactly one, the pinned one.
+    # A second, stricter tag (or a googlebot one) would win at Google.
+    robot_tags = [(n.attrs.get("name") or "").lower() for n in root.walk() if n.tag == "meta"
+                  and (n.attrs.get("name") or "").lower() in {"robots", "googlebot", "googlebot-news", "bingbot"}]
+    check(robot_tags == ["robots"], f"{rel}: robots directives {robot_tags}, want exactly one robots tag")
     check(meta(root, "name", "robots") == PINNED_ROBOTS_META, f"{rel}: robots meta is {meta(root, 'name', 'robots')!r}, want {PINNED_ROBOTS_META!r}")
     check(meta(root, "property", "og:site_name") == PINNED_NAME, f"{rel}: og:site_name is not {PINNED_NAME}")
     check(meta(root, "property", "og:locale") == "en_US", f"{rel}: og:locale is not en_US")
@@ -1175,6 +1180,7 @@ RETIRED_POLICY_SENTENCES = (
     "your best day for each habit",
     "resets to zero and starts again with your next completion",
     "an evening streak-at-risk alert goes to your partner",
+    "when a streak milestone is crossed", "an iPhone and iPad app only",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
