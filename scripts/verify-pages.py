@@ -1124,6 +1124,7 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "for a reaction the name of the habit you reacted to", "keeps a record of the invite used for the move with no end date",
              "Analytics never receives Health measurements", "the iOS keychain on this device only",
              "Once the pairing service receives the request", "while you are online",
+             "a streak-at-risk alert for one habit that runs every day or on specific days",
              "Those recordings are deleted 30 days after they were made", "your IP address",
              "From version 4.5.3, you can turn analytics off", "Before it was turned off, PostHog could record sessions",
              "An invite nobody accepts is deleted the next time the pairing service runs its cleanup",
@@ -1172,6 +1173,8 @@ RETIRED_POLICY_SENTENCES = (
     "the two of you are paired. If they do not have the app yet, the link takes them",
     "the link sends them to the App Store first",
     "your best day for each habit",
+    "resets to zero and starts again with your next completion",
+    "an evening streak-at-risk alert goes to your partner",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1204,6 +1207,14 @@ for must in ("How do I add an accountability partner?", "I have an invite code. 
              "Open the Partners tab and send an invite link", "choose Have a code and type",
              "the app shows your invite and they tap Accept"):
     check(must in SUPPORT_VISIBLE, f"support.html: missing {must!r} from the visible page")
+# Every number on the support page is one of its known facts, and every day
+# count is the 7 day invite expiry: InviteLinkService, InviteCodeValidator,
+# and the 24 to 48 hour reply window.
+for m in re.finditer(r"(?<![\w.])(\d+)(?:\s+(\w+))?", SUPPORT_VISIBLE):
+    num, nxt = m.group(1), (m.group(2) or "").lower()
+    check(num in {"6", "7", "24", "48"}, f"support.html: number {num} is not a known support fact")
+    if nxt.startswith("day"):
+        check(num == "7", f"support.html: '{num} {nxt}' is not the 7 day invite expiry")
 # The Premium purchase has Family Sharing on; the couples guide says so.
 COUPLES_TEXT = norm(first(parse(FRESH["habit-app-for-couples.html"]), lambda n: n.tag == "main").text())
 for must in ("With Family Sharing, one purchase also unlocks Premium for the people in your Apple family",
