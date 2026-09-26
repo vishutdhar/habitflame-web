@@ -43,6 +43,9 @@ POLICIES = gen.POLICIES
 # custom domain is the one canonical HabitFlame site; the old GitHub Pages
 # copy points its canonical links here.
 PINNED_BASE_URL = "https://habitflame.vishutdhar.com"
+# Rule for every public surface: this address, pinned here so a typo in
+# pages.json cannot move support and deletion requests.
+PINNED_CONTACT = "support@freedom-terminal.com"
 PINNED_ROBOTS_META = "index, follow, max-image-preview:large, max-snippet:-1"
 TITLE_LIMIT = 63
 # App facts, pinned here as well as in pages.json so a change to both at once
@@ -230,6 +233,7 @@ check(SITE["base_url"] == PINNED_BASE_URL, f"site.base_url is {SITE['base_url']!
 check(BASE == PINNED_BASE_URL, f"generator base is {BASE!r}, pinned {PINNED_BASE_URL!r}")
 check(SITE["app_store_url"] == PINNED_APP_STORE_URL, f"site.app_store_url is {SITE['app_store_url']!r}, pinned {PINNED_APP_STORE_URL!r}")
 check(SITE["name"] == PINNED_NAME, f"site.name is {SITE['name']!r}, pinned {PINNED_NAME!r}")
+check(SITE["contact_email"] == PINNED_CONTACT, f"site.contact_email is {SITE['contact_email']!r}, pinned {PINNED_CONTACT!r}")
 for key, value in PINNED_FACTS.items():
     check(FACTS.get(key) == value, f"facts.{key} is {FACTS.get(key)!r}, pinned {value!r} from the app")
 
@@ -696,6 +700,12 @@ for page, rel in HTML_PAGES:
             href = n.attrs.get(attr)
             if href is None or href.startswith(("mailto:", "tel:")):
                 continue
+            # The GitHub Pages mirror serves these same bytes on another host,
+            # so every link and asset must be absolute; a relative or root
+            # relative one would resolve to the mirror's host.
+            if not href.startswith("https://") and not href.startswith("#"):
+                failures.append(f"{rel}: {attr} {href!r} is not an absolute https URL")
+                continue
             split = urlsplit(href)
             if split.scheme or split.netloc:
                 if not href.startswith(BASE + "/") and href != BASE:
@@ -721,6 +731,9 @@ for page, rel in HTML_PAGES:
                 fpath = ROOT / (path_part + ".html")
             if not fpath.is_file():
                 failures.append(f"{rel}: link {href!r} does not resolve to a file ({fpath.relative_to(ROOT)})")
+                continue
+            if fpath.relative_to(ROOT).parts[0] in {"scripts", ".git", ".vercel", "node_modules"}:
+                failures.append(f"{rel}: link {href!r} points at a file that is not deployed")
                 continue
             if frag:
                 trel = str(fpath.relative_to(ROOT))
@@ -1158,6 +1171,7 @@ RETIRED_POLICY_SENTENCES = (
     "the pairing service stores your display name, your device's push token",
     "the two of you are paired. If they do not have the app yet, the link takes them",
     "the link sends them to the App Store first",
+    "your best day for each habit",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
@@ -1190,6 +1204,11 @@ for must in ("How do I add an accountability partner?", "I have an invite code. 
              "Open the Partners tab and send an invite link", "choose Have a code and type",
              "the app shows your invite and they tap Accept"):
     check(must in SUPPORT_VISIBLE, f"support.html: missing {must!r} from the visible page")
+# The Premium purchase has Family Sharing on; the couples guide says so.
+COUPLES_TEXT = norm(first(parse(FRESH["habit-app-for-couples.html"]), lambda n: n.tag == "main").text())
+for must in ("With Family Sharing, one purchase also unlocks Premium for the people in your Apple family",
+             "Family Sharing lets one purchase unlock Premium for both of you"):
+    check(must in COUPLES_TEXT, f"habit-app-for-couples.html: missing {must!r}")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
                        "With Premium, iCloud sync keeps your habits in sync across all your iPhone and iPad devices.",
