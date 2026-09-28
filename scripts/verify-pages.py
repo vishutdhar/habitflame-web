@@ -1133,7 +1133,8 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "Those recordings are deleted 30 days after they were made", "your IP address",
              "From version 4.5.3, you can turn analytics off", "Before it was turned off, PostHog could record sessions",
              "An invite nobody accepts is deleted the next time the pairing service runs its cleanup",
-             "These counters are not deleted"):
+             "These counters are not deleted",
+             "your IP address, which reaches PostHog with each request; PostHog is set to discard it, and no location is derived from it"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
@@ -1181,6 +1182,9 @@ RETIRED_POLICY_SENTENCES = (
     "resets to zero and starts again with your next completion",
     "an evening streak-at-risk alert goes to your partner",
     "when a streak milestone is crossed", "an iPhone and iPad app only",
+    # Retired when the analytics project stopped keeping IP addresses and
+    # stopped deriving any location from them.
+    "estimate your approximate location",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
 retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
