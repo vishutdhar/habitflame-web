@@ -246,11 +246,13 @@ def landing_main() -> str:
              f"<h2>{esc(pairing['heading'])}</h2>\n"
              f'<p class="section-intro">{rich(pairing["intro"])}</p>',
              rows(pairing["steps"], "ol", "rows steps")),
+        # The screenshot is its own grid item: under the heading in the rail
+        # on wide screens, after the rows on a phone.
         rail("features",
-             f"<h2>{esc(features['heading'])}</h2>\n"
+             f"<h2>{esc(features['heading'])}</h2>",
+             f'{rows(features["items"])}\n'
              f'<figure class="features-shot"><div class="device whole"><div class="screen">'
-             f'{shot(features["shot"], FEATURE_SIZES, eager=False)}</div></div></figure>',
-             rows(features["items"])),
+             f'{shot(features["shot"], FEATURE_SIZES, eager=False)}</div></div></figure>'),
         '<section class="pricing">\n'
         f'<h2 class="price-row">{price_heading}</h2>\n'
         f'{rows(pricing["tiers"], "ul", "tiers")}\n'

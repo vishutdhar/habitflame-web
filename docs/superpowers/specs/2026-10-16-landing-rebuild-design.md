@@ -151,3 +151,37 @@ chrome) and against the current page.
   new font, screenshots, icons and share card are new files.
 - invite.html keeps its script byte for byte; only its markup chrome and its stylesheet
   (styles.css) change, and their pinned hashes move with that change.
+
+## Changes after the screenshot critique
+
+The plan above was built, captured at 1920, 1440 and 390 wide, and changed where the
+captures showed a problem. The wireframe stays as the starting point; this section is
+what shipped.
+
+1. Split rows (title left, text right) left a dead band under every short title, and
+   the FAQ hairlines broke across the column gap. Every text section now uses a left
+   rail instead: the heading and intro sit in the 5 part column and stay in view while
+   the list scrolls, and the rows stack title over text in the 7 part column, so each
+   hairline runs unbroken.
+
+   ```
+   How pairing works        1  Send one invite link
+   Choose the one person       .............................
+                            -------------------------------------
+                            2  Check in as usual
+   ```
+
+2. The Today screenshot moved from the right column into the rail, under "Everything
+   else a habit needs", so the section follows the same rail as the others while the
+   hero keeps the only shot on the right. It is its own grid item: under the heading on
+   wide screens, after the six rows on a phone, so the rows come first there.
+3. The price row read "Premium is $9.99, paid / once, no subscription." Changed: it breaks
+   after the price, with "paid once, no subscription." on its own line in body ink at
+   weight 400, still at h1 size.
+4. The leader line from the callout to the ring was a separate draw animation that a
+   full page capture dropped. It now fades in with the callout text.
+5. At 390 the header nav wrapped and collided with the brand, and the skip link's
+   fractional height left a one pixel ember line at the top. The header drops Guides
+   below 480px and Support below 400px (both stay in the footer), and the skip link has a
+   whole pixel height so its translateY(-100%) hides it fully.
+6. Gaps of 12px became 16px to keep the 8px rhythm.

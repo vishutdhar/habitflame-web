@@ -163,6 +163,7 @@ main,
 
 .brand {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 10px;
   min-height: 44px;
@@ -456,8 +457,24 @@ main > section + section {
   top: 32px;
 }
 
+.rail.features {
+  grid-template-areas:
+    "head rows"
+    "shot rows";
+  grid-template-rows: auto 1fr;
+}
+
 .rail.features .rail-head {
   position: static;
+  grid-area: head;
+}
+
+.rail.features > .rows {
+  grid-area: rows;
+}
+
+.rail.features > .features-shot {
+  grid-area: shot;
 }
 
 .rows,
@@ -781,6 +798,14 @@ main > section + section {
     position: static;
   }
 
+  .rail.features {
+    grid-template-areas:
+      "head"
+      "rows"
+      "shot";
+    grid-template-rows: none;
+  }
+
   .rail > .rows,
   .rail > .guides,
   .rail > dl {
@@ -805,6 +830,14 @@ main > section + section {
 
 @media (max-width: 29.99em) {
   .top-links .top-guides {
+    display: none;
+  }
+}
+
+/* Below 400px the brand, Support and the App Store link no longer fit on
+   one line; Support stays in the footer. */
+@media (max-width: 24.99em) {
+  .top-links a:not(.store-link) {
     display: none;
   }
 }
