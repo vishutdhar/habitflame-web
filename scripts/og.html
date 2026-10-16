@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HabitFlame share card source</title>
+<!--
+  Source of assets/og/site-2026-10-16.png, the 1200 by 630 share card on
+  every generated page. Serve the repository root over HTTP, open
+  /scripts/og.html at a 1200 by 630 viewport and capture the viewport.
+  A changed card is a new file name (assets are cached for a year).
+-->
+<style>
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-weight: 400 700;
+  src: url("../assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2") format("woff2");
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1200px; height: 630px; overflow: hidden; }
+body {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  column-gap: 72px;
+  padding: 0 88px 0 80px;
+  background: #07080B;
+  color: #CDD0D4;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.copy { align-self: center; padding-bottom: 8px; }
+.brand { display: flex; align-items: center; gap: 14px; color: #E6E8EB; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.brand img { width: 48px; height: 48px; border-radius: 11px; }
+h1 { margin-top: 44px; color: #E6E8EB; font-size: 62px; line-height: 1.04; font-weight: 700; letter-spacing: -0.025em; }
+p { margin-top: 28px; font-size: 28px; line-height: 1.35; max-width: 18em; }
+.shot { align-self: end; position: relative; border-bottom: 1px solid rgba(255, 255, 255, 0.11); }
+.device { padding: 9px 9px 0; border: 1px solid rgba(255, 255, 255, 0.11); border-bottom: 0; border-radius: 52px 52px 0 0; background: #15181F; }
+.screen { position: relative; }
+.screen img { width: 100%; border-radius: 42px 42px 0 0; display: block; }
+.ring { position: absolute; left: 6.4%; top: 48.2%; width: 87.2%; height: 10.4%; border: 2px solid #FFBE5C; border-radius: 14px; }
+.clip { height: 560px; overflow: hidden; display: flex; align-items: flex-end; }
+</style>
+</head>
+<body>
+<div class="copy">
+  <div class="brand"><img src="../assets/icons/icon-96.webp" alt="">HabitFlame</div>
+  <h1>Habits stick when someone is watching.</h1>
+  <p>The iPhone habit tracker built around one accountability partner.</p>
+</div>
+<div class="shot">
+  <div class="clip">
+    <div class="device"><div class="screen"><img src="../assets/shots/partners-2026-10-16-900.webp" alt=""><span class="ring"></span></div></div>
+  </div>
+</div>
+</body>
+</html>
