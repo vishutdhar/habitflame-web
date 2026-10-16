@@ -1380,11 +1380,11 @@ except OSError:
 # way: Apple reads the components in order, so an added exclusion would stop
 # invite links opening the app while every presence check still passed.
 AASA_SHA256 = "338141d1c33ec3d86900cad72371a18e08a8ce2c274a7d66ed5b49514ef75968"
-STYLES_SHA256 = "cddd47efbf35d2dc2fbcbac907539486ef327929b41a9b47dc2817f8bdc1d0b6"
+STYLES_SHA256 = "53f0a43c0d5c6109c5aea62a98b8f9ace1f2cd97aef0244c7f574e583b7346bc"
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-INVITE_SHA256 = "8146db30a41140f7ae036539acee9bfb0f59a94ffd3e8f0eef9c1bba6471c184"
+INVITE_SHA256 = "efbda9fd2abc65be81f89b640055dd2c9d68505bb00fb00197ce227c2164df79"
 check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
                'href="https://apps.apple.com/app/id6756961710"'):
