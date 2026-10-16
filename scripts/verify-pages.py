@@ -1384,7 +1384,7 @@ STYLES_SHA256 = "53f0a43c0d5c6109c5aea62a98b8f9ace1f2cd97aef0244c7f574e583b7346b
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-INVITE_SHA256 = "efbda9fd2abc65be81f89b640055dd2c9d68505bb00fb00197ce227c2164df79"
+INVITE_SHA256 = "9d1f0814edfbb7e43d4d4809deb714701e480dfa5e0e75eb30713d812daabc0a"
 check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
                'href="https://apps.apple.com/app/id6756961710"'):
