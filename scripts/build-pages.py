@@ -43,19 +43,47 @@ POLICIES = CONFIG["policies"]
 BASE = SITE["base_url"].rstrip("/")
 YEAR = "2026"
 STYLESHEET = "site.css"
+# Published files under /assets are cached for a year and never change in
+# place, so each of these names belongs to one version of its file.
+FONT = "assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2"
+OG_IMAGE = "assets/og/site-2026-10-16.png"
+OG_IMAGE_ALT = ("HabitFlame: habits stick when someone is watching. The Partners tab, "
+                "with a flame from Jordan for your Morning Run.")
 POLICY_PAGES = [p["file"] for p in POLICIES]
 
-STORE_BUTTON_TEXT = "Get HabitFlame on the App Store"
+STORE_BUTTON_TEXT = "Download on the App Store"
 STORE_NOTE = "Free to download for iPhone and iPad. Premium is a one-time $9.99 purchase."
 CTA_HEADING = "Start with one habit and one person"
 CTA_TEXT = "Download HabitFlame, add a habit, and send one invite link."
-DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-LEDGER = [
-    ("You", ["lit", "lit", "lit", "lit", "lit", "lit", "open"]),
-    ("Sam", ["lit", "lit", "lit", "lit", "lit", "lit", "lit"]),
-]
-LEDGER_LABEL = ("A week of habits side by side. Sam has a flame on every day. "
-                "You have a flame on every day except Sunday, which is still open.")
+# The landing's second action: send the page to the person you would pair
+# with. The button stays hidden until the script below finds a way to share.
+SHARE_BUTTON_TEXT = "Send this page to your partner"
+SHARE_TEXT = "Be my accountability partner on HabitFlame?"
+SHARE_SCRIPT = """<script>
+(function () {
+  var canShare = typeof navigator.share === "function";
+  var canCopy = !!(navigator.clipboard && navigator.clipboard.writeText);
+  if (!canShare && !canCopy) return;
+  var canonical = document.querySelector('link[rel="canonical"]');
+  var url = canonical ? canonical.href : window.location.href;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-share]"), function (button) {
+    var label = button.textContent;
+    var timer = null;
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      if (canShare) {
+        navigator.share({ title: document.title, text: button.getAttribute("data-share"), url: url }).catch(function () {});
+        return;
+      }
+      navigator.clipboard.writeText(url).then(function () {
+        button.textContent = "Link copied";
+        clearTimeout(timer);
+        timer = setTimeout(function () { button.textContent = label; }, 2400);
+      }, function () {});
+    });
+  });
+})();
+</script>"""
 
 
 def esc(text: str) -> str:
@@ -130,6 +158,32 @@ def store_note() -> str:
     return f'<p class="store-note">{esc(STORE_NOTE)}</p>'
 
 
+def actions() -> str:
+    """The landing's two actions: the store button and the share button."""
+    return (
+        '<div class="actions">\n'
+        f"{store_button()}\n"
+        f'<button type="button" class="share" data-share="{esc(SHARE_TEXT)}" hidden>{esc(SHARE_BUTTON_TEXT)}</button>\n'
+        "</div>"
+    )
+
+
+def shot(spec: dict, sizes: str, eager: bool) -> str:
+    """A screenshot from /assets/shots at 600 and 900 pixels wide."""
+    src = f"{BASE}/assets/shots/{spec['stem']}"
+    load = 'fetchpriority="high"' if eager else 'loading="lazy"'
+    return (
+        f'<img src="{esc(src)}-600.webp" srcset="{esc(src)}-600.webp 600w, {esc(src)}-900.webp 900w" '
+        f'sizes="{esc(sizes)}" width="{int(spec["width"])}" height="{int(spec["height"])}" '
+        f'alt="{esc(spec["alt"])}" {load} decoding="async">'
+    )
+
+
+def rows(items: list, tag: str = "ul", cls: str = "rows") -> str:
+    lis = "\n".join(f"<li><h3>{esc(title)}</h3>\n<p>{rich(body)}</p></li>" for title, body in items)
+    return f'<{tag} class="{cls}">\n{lis}\n</{tag}>'
+
+
 def cta_section() -> str:
     return (
         '<section class="cta">\n'
@@ -155,56 +209,66 @@ def faq_list(entries: list[dict]) -> str:
 
 # ---- Landing -----------------------------------------------------------------
 
-def ledger() -> str:
-    head = '<div class="ledger-row days" aria-hidden="true"><span></span>' + "".join(
-        f"<span>{d}</span>" for d in DAYS) + "</div>"
-    rows = [head]
-    for name, states in LEDGER:
-        cells = "".join(f'<div class="flame {s}"></div>' for s in states)
-        rows.append(f'<div class="ledger-row"><span class="ledger-name">{esc(name)}</span>{cells}</div>')
-    grid = "\n".join(rows)
-    return (
-        '<div class="ledger">\n'
-        f'<div class="ledger-grid" role="img" aria-label="{esc(LEDGER_LABEL)}">\n{grid}\n</div>\n'
-        '<p class="ledger-nudge"><b>Sam</b> nudged you: still time for your walk.</p>\n'
-        f'<p class="ledger-caption">{esc(LANDING["ledger_caption"])}</p>\n'
-        "</div>"
-    )
+# The phone shot widths, matching --phone-shot in site.css: 60% of the
+# screen on a phone, 300px from a laptop up.
+HERO_SIZES = "(max-width: 47.99em) min(60vw, 300px), 300px"
+FEATURE_SIZES = "(max-width: 47.99em) min(60vw, 280px), 280px"
+
+
+def rail(cls: str, head: str, body: str, section_id: str = "") -> str:
+    """A landing section: the heading block in the left rail, the content in
+    the wide column beside it."""
+    ident = f' id="{section_id}"' if section_id else ""
+    return f'<section{ident} class="rail {cls}">\n<div class="rail-head">\n{head}\n</div>\n{body}\n</section>'
 
 
 def landing_main() -> str:
+    hero, pairing, features, pricing = LANDING["hero_shot"], LANDING["pairing"], LANDING["features"], LANDING["pricing"]
+    price = esc(FACTS["price"])
+    price_heading = (esc(pricing["heading"]).replace(price, f'<span class="price">{price}</span>')
+                     + f' <span class="terms">{esc(pricing["terms"])}</span>')
     parts = [
         '<section class="hero">\n'
         '<div class="hero-copy">\n'
         f"<h1>{esc(LANDING['headline'])}</h1>\n"
-        f'<p class="deck">{esc(LANDING["deck"])}</p>\n'
-        f"{store_button()}\n"
-        f"{store_note()}\n"
+        f'<p class="lede">{esc(LANDING["lede"])}</p>\n'
+        f"{actions()}\n"
+        f'<p class="store-note">{esc(LANDING["store_note"])}</p>\n'
         "</div>\n"
-        f"{ledger()}\n"
-        "</section>"
+        '<figure class="hero-shot">\n'
+        '<div class="shot-clip"><div class="device"><div class="screen">'
+        f"{shot(hero, HERO_SIZES, eager=True)}"
+        '<span class="ring" aria-hidden="true"></span></div></div></div>\n'
+        f'<figcaption class="callout">{esc(LANDING["callout"])}</figcaption>\n'
+        "</figure>\n"
+        "</section>",
+        rail("pairing",
+             f"<h2>{esc(pairing['heading'])}</h2>\n"
+             f'<p class="section-intro">{rich(pairing["intro"])}</p>',
+             rows(pairing["steps"], "ol", "rows steps")),
+        # The screenshot is its own grid item: under the heading in the rail
+        # on wide screens, after the rows on a phone.
+        rail("features",
+             f"<h2>{esc(features['heading'])}</h2>",
+             f'{rows(features["items"])}\n'
+             f'<figure class="features-shot"><div class="device whole"><div class="screen">'
+             f'{shot(features["shot"], FEATURE_SIZES, eager=False)}</div></div></figure>'),
+        '<section class="pricing">\n'
+        f'<h2 class="price-row">{price_heading}</h2>\n'
+        f'{rows(pricing["tiers"], "ul", "tiers")}\n'
+        "</section>",
+        rail("guides-list",
+             f"<h2>{esc(LANDING['guides_heading'])}</h2>\n"
+             f'<p class="section-intro">{esc(LANDING["guides_intro"])}</p>',
+             guides_list(PAGES), section_id="guides"),
+        rail("faq", "<h2>Questions</h2>", faq_list(LANDING["faq"])),
+        '<section class="cta">\n'
+        f"<h2>{esc(CTA_HEADING)}</h2>\n"
+        f"<p>{esc(CTA_TEXT)}</p>\n"
+        f"{actions()}\n"
+        "</section>",
+        SHARE_SCRIPT,
     ]
-    for section in LANDING["sections"]:
-        items = "\n".join(
-            f"<li><h3>{esc(title)}</h3>\n<p>{rich(body)}</p></li>" for title, body in section["items"]
-        )
-        parts.append(f"<section>\n<h2>{esc(section['heading'])}</h2>\n<ul class=\"rows\">\n{items}\n</ul>\n</section>")
-    premium = LANDING["premium"]
-    price = esc(FACTS["price"])
-    body = esc(premium["body"]).replace(price, f'<span class="price">{price}</span>')
-    parts.append(
-        f"<section>\n<h2>{esc(premium['heading'])}</h2>\n"
-        f'<div class="premium-band">\n<p>{body}</p>\n</div>\n</section>'
-    )
-    parts.append(
-        '<section id="guides">\n'
-        f"<h2>{esc(LANDING['guides_heading'])}</h2>\n"
-        f'<p class="section-intro">{esc(LANDING["guides_intro"])}</p>\n'
-        f"{guides_list(PAGES)}\n"
-        "</section>"
-    )
-    parts.append(f'<section class="faq">\n<h2>Questions</h2>\n{faq_list(LANDING["faq"])}\n</section>')
-    parts.append(cta_section())
     return "\n".join(parts)
 
 
@@ -367,6 +431,9 @@ def render(page: dict | None) -> str:
         "base": esc(BASE),
         "stylesheet": esc(STYLESHEET),
         "css_version": esc(css_version()),
+        "font": esc(FONT),
+        "og_image": esc(OG_IMAGE),
+        "og_image_alt": esc(OG_IMAGE_ALT),
         "jsonld": jsonld(page),
         "body_class": body_class,
         "main": main,

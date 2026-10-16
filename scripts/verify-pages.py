@@ -47,6 +47,10 @@ PINNED_BASE_URL = "https://habitflame.vishutdhar.com"
 # pages.json cannot move support and deletion requests.
 PINNED_CONTACT = "support@freedom-terminal.com"
 PINNED_ROBOTS_META = "index, follow, max-image-preview:large, max-snippet:-1"
+# The share card and the one font file, both under /assets (published files
+# there never change in place, so a new version gets a new name).
+PINNED_OG_IMAGE = "assets/og/site-2026-10-16.png"
+PINNED_FONT = "assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2"
 TITLE_LIMIT = 63
 # App facts, pinned here as well as in pages.json so a change to both at once
 # still has to touch this file. Sources in the app repository:
@@ -326,13 +330,14 @@ for f in sorted(ROOT.glob("*.html")):
         failures.append(f"{f.name}: an HTML file that is neither generated nor the invite page (stale output?)")
 # Directories kept out of the deployment by .vercelignore (the generator's
 # sources, whose template and fragments would otherwise be served as pages).
-NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts"}
+NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts", "docs"}
 try:
     vercelignore = (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines()
 except OSError:
     vercelignore = []
 ignore_rules = [l.strip() for l in vercelignore if l.strip() and not l.strip().startswith("#")]
-check(ignore_rules == ["/scripts/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/'] so nothing the site needs is left out")
+# The generator's sources and the design notes in docs/ are not part of the site.
+check(ignore_rules == ["/scripts/", "/docs/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/', '/docs/'] so nothing the site needs is left out")
 for f in sorted(ROOT.rglob("*.html")):
     rel_f = f.relative_to(ROOT)
     if rel_f.parts[0] in NOT_DEPLOYED or len(rel_f.parts) == 1:
@@ -780,7 +785,23 @@ for page, rel in HTML_PAGES:
     check(meta(root, "property", "og:site_name") == PINNED_NAME, f"{rel}: og:site_name is not {PINNED_NAME}")
     check(meta(root, "property", "og:locale") == "en_US", f"{rel}: og:locale is not en_US")
     for key, attr in (("og:image", "property"), ("twitter:image", "name")):
-        check(meta(root, attr, key) == f"{PINNED_BASE_URL}/app-icon.png", f"{rel}: {key} is {meta(root, attr, key)!r}")
+        check(meta(root, attr, key) == f"{PINNED_BASE_URL}/{PINNED_OG_IMAGE}", f"{rel}: {key} is {meta(root, attr, key)!r}")
+    check((meta(root, "property", "og:image:width"), meta(root, "property", "og:image:height")) == ("1200", "630"),
+          f"{rel}: og:image size is not declared as 1200 by 630")
+    check(bool(meta(root, "property", "og:image:alt")), f"{rel}: og:image:alt is missing")
+    check(meta(root, "name", "twitter:card") == "summary_large_image", f"{rel}: twitter:card is {meta(root, 'name', 'twitter:card')!r}")
+    # One family, self hosted and preloaded. No stylesheet, font, script or
+    # connection hint for another host: no font service, analytics or widget.
+    preloads = [n.attrs.get("href") for n in root.walk() if n.tag == "link" and n.attrs.get("rel") == "preload"]
+    check(preloads == [f"{PINNED_BASE_URL}/{PINNED_FONT}"], f"{rel}: font preloads are {preloads}")
+    for n in root.walk():
+        if n.tag == "script" and n.attrs.get("src"):
+            failures.append(f"{rel}: script file {n.attrs['src']!r}; pages load no script files")
+        if n.tag == "link" and n.attrs.get("rel") in {"stylesheet", "preload", "preconnect", "dns-prefetch", "modulepreload"} \
+                and not (n.attrs.get("href") or "").startswith(PINNED_BASE_URL + "/"):
+            failures.append(f"{rel}: {n.attrs.get('rel')} link to another host: {n.attrs.get('href')!r}")
+    for host in ("fonts.googleapis.com", "fonts.gstatic.com"):
+        check(host not in raw, f"{rel}: mentions {host}; the font is self hosted")
     check(len(by_tag(root, "h1")) == 1, f"{rel}: expected exactly one h1")
     dts = [n.text() for n in by_tag(root, "dt")]
     dds = [n.text() for n in by_tag(root, "dd")]
@@ -861,9 +882,23 @@ for form, count in premium_free_forms.items():
 for form, count in visibility_forms.items():
     check(count > 0, f"facts.visibility_forms has {form!r}, which no page uses (remove it)")
 
-# l. Text colors in styles.css meet 4.5:1 in both themes.
+# l. Text colors in site.css. The site is dark only (the portfolio landing
+#    brief of 2026-10-16). Every text color meets 4.5:1 on every ground, and
+#    the brief's APCA rules hold: ember text on the ground reaches Lc 60, ink
+#    on an ember button Lc 75, running text Lc 75, and fine print (muted)
+#    stays at Lc 45 or more. The skip link hides with a transform, never a
+#    negative top, which leaves a visible bar when the link is taller.
 CSS = (ROOT / gen.STYLESHEET).read_text(encoding="utf-8")
 check(gen.STYLESHEET == "site.css", f"generator stylesheet is {gen.STYLESHEET!r}; styles.css belongs to the invite page")
+check(gen.FONT == PINNED_FONT and (ROOT / PINNED_FONT).is_file(), f"generator font {gen.FONT!r} is not the pinned file {PINNED_FONT!r}")
+check(PINNED_FONT in CSS, f"site.css: the @font-face does not load {PINNED_FONT}")
+check(gen.OG_IMAGE == PINNED_OG_IMAGE, f"generator share card {gen.OG_IMAGE!r} is not {PINNED_OG_IMAGE!r}")
+try:
+    _png = (ROOT / PINNED_OG_IMAGE).read_bytes()
+    check(_png[:8] == b"\x89PNG\r\n\x1a\n" and (int.from_bytes(_png[16:20], "big"), int.from_bytes(_png[20:24], "big")) == (1200, 630),
+          f"{PINNED_OG_IMAGE}: not a 1200 by 630 PNG")
+except OSError:
+    failures.append(f"{PINNED_OG_IMAGE}: missing")
 
 
 def css_vars(block: str) -> dict[str, str]:
@@ -889,42 +924,69 @@ def css_color(value: str, env: dict[str, str]) -> str:
     return value
 
 
+def rgb(h: str) -> list[float]:
+    return [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+
+
 def contrast(a: str, b: str) -> float:
     def lum(h: str) -> float:
-        rgb = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
-        rgb = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
-        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in rgb(h)]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
     hi, lo = sorted((lum(a), lum(b)), reverse=True)
     return (hi + 0.05) / (lo + 0.05)
 
 
-dark_m = re.search(r"(?m)^:root\s*\{([^}]*)\}", CSS)
-light_m = re.search(r'@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}', CSS)
-check(bool(dark_m and light_m), "site.css: cannot find the dark :root block or the light theme block")
+def apca(text: str, ground: str) -> float:
+    """APCA-W3 0.0.98G-4g lightness contrast, as an absolute Lc value."""
+    def y(h: str) -> float:
+        r, g, b = rgb(h)
+        v = 0.2126729 * r ** 2.4 + 0.7151522 * g ** 2.4 + 0.0721750 * b ** 2.4
+        return v + (0.022 - v) ** 1.414 if v < 0.022 else v
+    yt, yb = y(text), y(ground)
+    if abs(yb - yt) < 0.0005:
+        return 0.0
+    if yb > yt:
+        sapc = (yb ** 0.56 - yt ** 0.57) * 1.14
+        return 0.0 if sapc < 0.1 else (sapc - 0.027) * 100
+    sapc = (yb ** 0.65 - yt ** 0.62) * 1.14
+    return 0.0 if sapc > -0.1 else -(sapc + 0.027) * 100
+
+
+root_m = re.search(r"(?m)^:root\s*\{([^}]*)\}", CSS)
+check(bool(root_m), "site.css: cannot find the :root block")
+check(re.search(r"prefers-color-scheme\s*:\s*light", CSS) is None, "site.css: a light theme block; the site is dark only")
 contrast_lines = []
-if dark_m and light_m:
-    dark_env = css_vars(dark_m.group(1))
-    themes = {"dark": dark_env, "light": {**dark_env, **css_vars(light_m.group(1))}}
+if root_m:
+    env = css_vars(root_m.group(1))
+    check(re.search(r"(?m)^\s*color-scheme:\s*dark;", root_m.group(1)) is not None, "site.css: :root does not set color-scheme: dark")
+    skip, skip_hover = css_rule(".skip"), css_rule(".skip:hover")
+    check(skip.get("transform") == "translateY(-100%)" and not skip.get("top", "0").startswith("-"),
+          f"site.css: .skip must hide with transform: translateY(-100%) and no negative top, has {skip}")
     store, hover = css_rule(".store"), css_rule(".store:hover")
-    for theme, env in themes.items():
-        pairs = [(f"--{t} on --{b}", env[t], env[b]) for t in ("ink", "ink-2", "ink-3", "link") for b in ("bg", "bg-2")]
-        skip, skip_hover = css_rule(".skip"), css_rule(".skip:hover")
-        pairs += [("skip link", skip.get("color", ""), skip.get("background", "")),
-                  ("skip link hover", skip_hover.get("color", ""), skip_hover.get("background", ""))]
-        pairs += [("store button", store.get("color", ""), store.get("background", "")),
-                  ("store button hover", hover.get("color", ""), hover.get("background", ""))]
-        worst = []
-        for name, fg, bg in pairs:
-            try:
-                ratio = contrast(css_color(fg, env), css_color(bg, env))
-            except (KeyError, ValueError) as e:
-                failures.append(f"site.css {theme}: {name}: {e}")
-                continue
-            worst.append((ratio, name))
-            check(ratio >= 4.5, f"site.css {theme}: {name} is {ratio:.2f}:1, below 4.5:1")
-        if worst:
-            r, name = min(worst)
-            contrast_lines.append(f"contrast {theme}: lowest {r:.2f}:1 ({name}) of {len(worst)} pairs")
+    pairs = [(f"--{t} on --{b}", f"var(--{t})", f"var(--{b})") for t in ("ink", "body", "muted", "ember") for b in ("ground", "surface", "surface-2")]
+    buttons = [("skip link", skip), ("skip link hover", skip_hover), ("store button", store), ("store button hover", hover)]
+    pairs += [(name, rule.get("color", ""), rule.get("background", "")) for name, rule in buttons]
+    apca_floor = {"--ember on --ground": 60, "--body on --ground": 75, "--ink on --ground": 75, "--muted on --ground": 45}
+    apca_floor.update({name: 75 for name, _ in buttons})
+    worst, worst_apca = [], []
+    for name, fg, bg in pairs:
+        try:
+            fg_hex, bg_hex = css_color(fg, env), css_color(bg, env)
+        except (KeyError, ValueError) as e:
+            failures.append(f"site.css: {name}: {e}")
+            continue
+        ratio = contrast(fg_hex, bg_hex)
+        worst.append((ratio, name))
+        check(ratio >= 4.5, f"site.css: {name} is {ratio:.2f}:1, below 4.5:1")
+        if name in apca_floor:
+            lc = apca(fg_hex, bg_hex)
+            worst_apca.append((lc, name))
+            check(lc >= apca_floor[name], f"site.css: {name} is APCA Lc {lc:.1f}, below {apca_floor[name]}")
+    if worst:
+        r, name = min(worst)
+        contrast_lines.append(f"contrast: lowest {r:.2f}:1 ({name}) of {len(worst)} pairs")
+    for lc, name in sorted(worst_apca):
+        contrast_lines.append(f"apca: Lc {lc:.1f} {name} (floor {apca_floor[name]})")
 
 # h. Prose hygiene.
 DASHES = {0x2012, 0x2013, 0x2014, 0x2015, 0x2212}
@@ -947,7 +1009,14 @@ hygiene_files = {
     "scripts/build-pages.py": GEN_PATH.read_text(encoding="utf-8"),
     "scripts/verify-pages.py": pathlib.Path(__file__).read_text(encoding="utf-8"),
     "vercel.json": (ROOT / "vercel.json").read_text(encoding="utf-8"),
+    # The invite page and its stylesheet are hand written; the share card
+    # source and the design notes ship in the repository.
+    "invite.html": (ROOT / "invite.html").read_text(encoding="utf-8"),
+    "styles.css": (ROOT / "styles.css").read_text(encoding="utf-8"),
+    "scripts/og.html": (ROOT / "scripts" / "og.html").read_text(encoding="utf-8"),
 }
+for note in sorted((ROOT / "docs").rglob("*.md")):
+    hygiene_files[str(note.relative_to(ROOT))] = note.read_text(encoding="utf-8")
 for frag in sorted((ROOT / "scripts" / "policies").glob("*.html")):
     hygiene_files[str(frag.relative_to(ROOT))] = frag.read_text(encoding="utf-8")
 hygiene_files.update(FRESH)
@@ -1311,11 +1380,11 @@ except OSError:
 # way: Apple reads the components in order, so an added exclusion would stop
 # invite links opening the app while every presence check still passed.
 AASA_SHA256 = "338141d1c33ec3d86900cad72371a18e08a8ce2c274a7d66ed5b49514ef75968"
-STYLES_SHA256 = "cddd47efbf35d2dc2fbcbac907539486ef327929b41a9b47dc2817f8bdc1d0b6"
+STYLES_SHA256 = "53f0a43c0d5c6109c5aea62a98b8f9ace1f2cd97aef0244c7f574e583b7346bc"
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-INVITE_SHA256 = "8146db30a41140f7ae036539acee9bfb0f59a94ffd3e8f0eef9c1bba6471c184"
+INVITE_SHA256 = "9d1f0814edfbb7e43d4d4809deb714701e480dfa5e0e75eb30713d812daabc0a"
 check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
                'href="https://apps.apple.com/app/id6756961710"'):

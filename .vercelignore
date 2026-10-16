@@ -1,2 +1,3 @@
-# Generator sources are not part of the site.
+# Generator sources and design notes are not part of the site.
 /scripts/
+/docs/

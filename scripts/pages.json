@@ -63,26 +63,40 @@
   "landing": {
     "title": "HabitFlame: habit tracker with an accountability partner",
     "description": "HabitFlame is an iPhone habit tracker. Keep streaks alive and pair with a partner who nudges you and, with Premium, sees every shared win. Premium is paid once.",
-    "lastmod": "2026-09-25",
+    "lastmod": "2026-10-16",
     "headline": "Habits stick when someone is watching.",
-    "deck": "HabitFlame is an iPhone habit tracker built around one idea: pair with a friend, partner or family member, and with Premium each shared habit you complete shows up on their phone the moment it happens. Streaks, a focus timer and reminders do the rest.",
-    "ledger_caption": "You and your partner, one week, side by side. Every flame is a habit one of you completed.",
-    "sections": [
-      {
-        "heading": "What the app does",
-        "items": [
-          ["Track any habit your way", "Yes or no, a count, a duration, or a multi check-in for habits you do 2 to 4 times a day. Schedule each habit every day, on specific days, or as a weekly target."],
-          ["Keep the streak alive", "See your current and longest streak for every habit. Milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days get a celebration, and 16 achievement badges mark the bigger wins."],
-          ["Pair with an accountability partner", "Send an invite link and pair for free. With Premium, each shared habit you complete in the app for today is sent to your partner the moment it happens, with milestone alerts and, when the app is started in the evening, a warning if a daily streak is at risk; your partner does not need Premium to receive them. Free accounts get 3 nudges a month and a combined weekly count of what you both completed."],
-          ["Focus with a built-in timer", "A Pomodoro timer runs 25 minute work sessions with 5 minute breaks and a 15 minute long break, so a habit like reading or deep work has its time carved out."],
-          ["Get reminders that change", "Set a reminder time per habit. The wording is picked again each time you open the app, and a habit on a streak of 7 or more days can get a different message for each of the next few days, within the limit iOS sets on waiting notifications."],
-          ["Glance from the home screen", "Interactive widgets show today's habits, your progress and streaks, and a partner widget shows how their day is going when they have Premium. Tap to complete without opening the app. A habit completed from a widget sends your partner no alert, though it still adds to the weekly count."]
-        ]
-      }
-    ],
-    "premium": {
-      "heading": "Free to start, one payment to unlock everything",
-      "body": "The free version includes 5 habits, all tracking types, streaks, badges, widgets, iCloud sync, Apple Health and a partner with 3 nudges a month. Premium is a one-time purchase of $9.99, not a subscription, and adds unlimited habits, habit stacking, smart insights, real-time partner updates and unlimited partner nudges."
+    "lede": "Pair with one person. With Premium, each shared habit you complete in the app for today reaches their phone the moment you do it, and they can nudge you when you go quiet. Free for up to 5 habits. Premium is $9.99, paid once, no subscription.",
+    "store_note": "On the App Store for iPhone and iPad.",
+    "hero_shot": {"stem": "partners-2026-10-16", "width": 600, "height": 807, "alt": "The Partners tab in HabitFlame. Jordan's card sits at the top. The newest entry below it reads Jordan sent a flame for Morning Run, an hour ago, then Jordan completed Evening Run on a 20 day streak and Journaling on an 11 day streak."},
+    "callout": "Jordan reacted to your Morning Run.",
+    "pairing": {
+      "heading": "How pairing works",
+      "intro": "Choose the one person who will notice when you skip a day: a partner, a friend, a sister, the person you train with. Pairing, reactions and nudges are free for both of you.",
+      "steps": [
+        ["Send one invite link", "Open the Partners tab and send an invite link, show a QR code, or pick someone from your contacts. When they open the link with HabitFlame installed, the app shows your invite and they tap Accept."],
+        ["Check in as usual", "With Premium, each shared habit you complete in the app for today is sent to your partner the moment it happens, with milestone alerts and, when the app is started in the evening, a warning if a daily streak is at risk; your partner does not need Premium to receive them. On the free version, you both see a combined weekly count of what you completed."],
+        ["Hear back from them", "They can react with a flame to a completion that reaches them, and nudge you when you go quiet. Free accounts get 3 nudges a month. Premium adds unlimited partner nudges."]
+      ]
+    },
+    "features": {
+      "heading": "Everything else a habit needs",
+      "items": [
+        ["Track any habit your way", "Yes or no, a count, a duration, or a multi check-in for habits you do 2 to 4 times a day. Schedule each habit every day, on specific days, or as a weekly target."],
+        ["Keep the streak alive", "See your current and longest streak for every habit. Milestones at 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500 and 1000 days get a celebration, and 16 achievement badges mark the bigger wins."],
+        ["See the whole year", "The Stats tab lays out the last year as a grid of days, each shaded by how much of that day's habits you completed, and green on a day you did everything scheduled."],
+        ["Focus with a built-in timer", "A Pomodoro timer runs 25 minute work sessions with 5 minute breaks and a 15 minute long break, so a habit like reading or deep work has its time carved out."],
+        ["Get reminders that change", "Set a reminder time per habit. The wording is picked again each time you open the app, and a habit on a streak of 7 or more days can get a different message for each of the next few days, within the limit iOS sets on waiting notifications."],
+        ["Glance from the home screen", "Interactive widgets show today's habits, your progress and streaks, and a partner widget shows how their day is going when they have Premium. Tap to complete without opening the app. A habit completed from a widget sends your partner no alert, though it still adds to the weekly count."]
+      ],
+      "shot": {"stem": "today-2026-10-16", "width": 600, "height": 1304, "alt": "The Today tab in HabitFlame. A flame shows 3 of 5 habits done, and the morning list has Meditate, Workout and Morning Run checked off, Drink Water and Read part way, and a streak count beside each habit."}
+    },
+    "pricing": {
+      "heading": "Premium is $9.99,",
+      "terms": "paid once, no subscription.",
+      "tiers": [
+        ["Free", "The free version includes up to 5 habits, every tracking type, streaks, badges, widgets, reminders, the focus timer, iCloud sync, Apple Health and an accountability partner with 3 nudges a month."],
+        ["Premium", "Premium removes the habit limit and adds habit stacking, smart insights, real-time partner updates and unlimited partner nudges. With Family Sharing, one purchase also unlocks Premium for the people in your Apple family."]
+      ]
     },
     "guides_heading": "Guides",
     "guides_intro": "Longer answers to the questions people ask before choosing a habit app.",
@@ -98,7 +112,7 @@
       "file": "support.html",
       "title": "HabitFlame support and common questions",
       "description": "Help with HabitFlame: pairing with a partner, invite codes, restoring a purchase, iCloud sync, Apple Health and exporting your data.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "Support",
       "deck": "Answers to the questions people ask most, and how to reach us.",
       "intro": ["Email [support@freedom-terminal.com](mailto:support@freedom-terminal.com) with any question about HabitFlame. We typically reply within 24 to 48 hours."],
@@ -119,7 +133,7 @@
       "file": "privacy-policy.html",
       "title": "HabitFlame privacy policy",
       "description": "What the HabitFlame app stores on your device and in iCloud, what it sends to the pairing service and to analytics, and how to have your data removed.",
-      "lastmod": "2026-09-28",
+      "lastmod": "2026-10-16",
       "h1": "Privacy Policy",
       "deck": "Last updated: September 28, 2026",
       "fragment": "privacy-policy.html"
@@ -128,7 +142,7 @@
       "file": "terms-of-service.html",
       "title": "HabitFlame terms of service",
       "description": "The terms of service for HabitFlame, the habit tracker for iPhone and iPad: using the app, accountability partners, in-app purchases and liability.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "Terms of Service",
       "deck": "Last updated: July 19, 2026",
       "fragment": "terms-of-service.html"
@@ -139,7 +153,7 @@
       "slug": "accountability-partner-habit-tracker",
       "title": "Habit tracker with an accountability partner",
       "description": "A habit tracker where a partner can nudge you, react and, with Premium, see each shared habit you complete. How HabitFlame's accountability partner works.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "A habit tracker with a real accountability partner",
       "deck": "Most habit apps track. HabitFlame adds the one thing that changes whether you show up: another person who, with Premium, can see whether you did.",
       "faq_heading": "Questions about accountability partners",
@@ -198,7 +212,7 @@
       "slug": "streak-tracker-app",
       "title": "Streak tracker app for iPhone",
       "description": "HabitFlame is a streak tracker for iPhone with milestone celebrations, a full year view and, with Premium, a partner who sees your streak grow.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "A streak tracker that makes the chain worth keeping",
       "deck": "A streak is the simplest motivator there is: a number that only goes up if you show up today. HabitFlame counts it for every habit, celebrates the milestones and, with Premium, lets someone else watch it grow.",
       "faq_heading": "Questions about streaks",
@@ -247,7 +261,7 @@
       "slug": "pomodoro-habit-app",
       "title": "Pomodoro habit app: focus timer and habit tracker",
       "description": "HabitFlame pairs a Pomodoro focus timer with a habit tracker on iPhone: 25 minute sessions, timed breaks and a Live Activity, then log the minutes.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "A Pomodoro timer inside your habit tracker",
       "deck": "Some habits need a box of time, not a checkbox. HabitFlame keeps a Pomodoro timer one tap away on the Today tab, so reading, studying or deep work gets its 25 minutes, and you log the minutes on your habit when you are done.",
       "faq_heading": "Questions about the focus timer",
@@ -297,7 +311,7 @@
       "slug": "habit-app-for-couples",
       "title": "Habit app for couples and partners",
       "description": "A habit app two people can use together. Pair with your partner in HabitFlame, share the habits you choose, react to each other's wins and nudge each other.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "A habit app for couples who want to keep each other honest",
       "deck": "Building a habit next to someone you live with is easier when the app knows about both of you. HabitFlame pairs two people and, with Premium, shows each what the other completed, while keeping everything else separate.",
       "faq_heading": "Questions about using HabitFlame as a couple",
@@ -353,7 +367,7 @@
       "slug": "daily-habit-tracker-with-reminders",
       "title": "Daily habit tracker with reminders",
       "description": "A daily habit tracker for iPhone with a reminder time per habit, wording that changes, widgets and a partner who can nudge you when you go quiet.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "A daily habit tracker with reminders that do not go stale",
       "deck": "The first reminder works. The fortieth identical one gets swiped away. HabitFlame gives every habit its own reminder time, varies the wording, and backs it up with widgets and a partner who can nudge you.",
       "faq_heading": "Questions about reminders and the daily view",
@@ -399,7 +413,7 @@
       "slug": "habitflame-vs-habitshare",
       "title": "HabitFlame vs HabitShare: habit tracking with a partner",
       "description": "HabitShare and HabitFlame both pair you with a friend for your habits. Where they differ: platforms, price, timer, widgets, nudges and recent updates.",
-      "lastmod": "2026-09-25",
+      "lastmod": "2026-10-16",
       "h1": "HabitFlame vs HabitShare",
       "deck": "Both apps start from the same idea: a habit is easier to keep when a friend can see it. Here is where they differ, stated as plainly as we can, so you can pick the one that fits.",
       "faq_heading": "Questions about HabitFlame and HabitShare",
