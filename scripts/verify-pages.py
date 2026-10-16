@@ -326,13 +326,14 @@ for f in sorted(ROOT.glob("*.html")):
         failures.append(f"{f.name}: an HTML file that is neither generated nor the invite page (stale output?)")
 # Directories kept out of the deployment by .vercelignore (the generator's
 # sources, whose template and fragments would otherwise be served as pages).
-NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts"}
+NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts", "docs"}
 try:
     vercelignore = (ROOT / ".vercelignore").read_text(encoding="utf-8").splitlines()
 except OSError:
     vercelignore = []
 ignore_rules = [l.strip() for l in vercelignore if l.strip() and not l.strip().startswith("#")]
-check(ignore_rules == ["/scripts/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/'] so nothing the site needs is left out")
+# The generator's sources and the design notes in docs/ are not part of the site.
+check(ignore_rules == ["/scripts/", "/docs/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/', '/docs/'] so nothing the site needs is left out")
 for f in sorted(ROOT.rglob("*.html")):
     rel_f = f.relative_to(ROOT)
     if rel_f.parts[0] in NOT_DEPLOYED or len(rel_f.parts) == 1:
