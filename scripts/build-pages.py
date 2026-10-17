@@ -131,7 +131,10 @@ def year_grid(first_week: int, streak: int, rate: float, seed: int) -> str:
 # on a fine pointer, its tilt. With reduced motion it does nothing, so the
 # page keeps the final state the stylesheet gives it. Layout is read on load
 # and resize only; scroll and pointer handlers are passive and only queue a
-# frame, and the frame loop stops once the tilt has settled.
+# frame, and the frame loop stops once the tilt has settled. The tilt is
+# aimed each frame from the last pointer position and the current scroll, so
+# a still pointer over a moving page keeps it true, and past the hero it
+# settles to flat.
 MOTION_SCRIPT = """<script>
 (function () {
   if (!window.matchMedia || matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
@@ -147,7 +150,7 @@ MOTION_SCRIPT = """<script>
 
   var scene = document.querySelector(".scene");
   if (!scene) return;
-  var end = 1, midX = 0, midY = 0, tx = 0, ty = 0, aimX = 0, aimY = 0, frame = 0;
+  var end = 1, midX = 0, midY = 0, tx = 0, ty = 0, pointer = null, frame = 0;
   function measure() {
     var box = scene.getBoundingClientRect();
     end = Math.max(1, (box.bottom + scrollY) * 0.85);
@@ -157,6 +160,11 @@ MOTION_SCRIPT = """<script>
   function clamp(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
   function draw() {
     frame = 0;
+    var aimX = 0, aimY = 0;
+    if (pointer && scrollY <= end) {
+      aimY = clamp((pointer.x - midX) / (innerWidth / 2)) * 6;
+      aimX = clamp((midY - scrollY - pointer.y) / (innerHeight / 2)) * 4;
+    }
     tx += (aimX - tx) * 0.1;
     ty += (aimY - ty) * 0.1;
     if (Math.abs(aimX - tx) < 0.01 && Math.abs(aimY - ty) < 0.01) {
@@ -177,12 +185,7 @@ MOTION_SCRIPT = """<script>
   addEventListener("load", function () { measure(); queue(); });
   if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
   document.addEventListener("pointermove", function (e) {
-    if (scrollY > end) {
-      aimX = aimY = 0;
-    } else {
-      aimY = clamp((e.clientX - midX) / (innerWidth / 2)) * 6;
-      aimX = clamp((midY - scrollY - e.clientY) / (innerHeight / 2)) * 4;
-    }
+    pointer = { x: e.clientX, y: e.clientY };
     queue();
   }, { passive: true });
 })();
