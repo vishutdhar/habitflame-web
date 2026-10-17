@@ -46,7 +46,7 @@ STYLESHEET = "site.css"
 # Published files under /assets are cached for a year and never change in
 # place, so each of these names belongs to one version of its file.
 FONT = "assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2"
-OG_IMAGE = "assets/og/site-2026-10-16.png"
+OG_IMAGE = "assets/og/site-2026-10-16-app.png"
 OG_IMAGE_ALT = ("HabitFlame: habits stick when someone is watching. The Partners tab, "
                 "with a flame from Jordan for your Morning Run.")
 POLICY_PAGES = [p["file"] for p in POLICIES]
@@ -82,6 +82,112 @@ SHARE_SCRIPT = """<script>
       }, function () {});
     });
   });
+})();
+</script>"""
+
+# The hero's back plane is the app's year grid (YearGridView.swift): one band
+# per habit, a column per week (oldest on the left) and a row per day, Monday
+# at the top. The marks are the app's day states: b before the habit existed,
+# 0 scheduled and missed, 1 to 4 done at 0.3, 0.5, 0.75 and full strength,
+# t today (done, with the app's stroke), f the future. The three habits are
+# the partner's from the Partners screenshot: Journaling ends on an 11 day
+# streak, Evening Run on a 20 day streak, and Morning Run on the long one.
+# Narrow screens show the last two bands.
+FIELD_WEEKS = 20
+FIELD_TODAY = FIELD_WEEKS * 7 - 4  # the Thursday of the last week
+FIELD_HABITS = (
+    # (first week of the habit, current streak in days, share of other days done, seed)
+    (7, 11, 0.45, 3),
+    (2, 20, 0.55, 11),
+    (0, 64, 0.7, 29),
+)
+FIELD_CLASS = {"b": "b", "t": "t", "f": "f", "0": "l0", "1": "l1", "2": "l2", "3": "l3", "4": "l4"}
+
+
+def year_grid(first_week: int, streak: int, rate: float, seed: int) -> str:
+    """One habit's days as marks, in the app's order (week by week, Monday
+    first). The scatter before the streak comes from a fixed seed, so the
+    page renders the same bytes every time."""
+    state, marks = seed, []
+    for day in range(FIELD_WEEKS * 7):
+        state = (state * 1103515245 + 12345) % 2147483648
+        draw = state / 2147483648
+        if day > FIELD_TODAY:
+            marks.append("f")
+        elif day == FIELD_TODAY:
+            marks.append("t")
+        elif day < first_week * 7:
+            marks.append("b")
+        elif day > FIELD_TODAY - streak:
+            marks.append("4")
+        elif day == FIELD_TODAY - streak or draw >= rate:
+            marks.append("0")
+        else:
+            marks.append("4" if draw < rate * 0.6 else "3" if draw < rate * 0.8 else "2" if draw < rate * 0.92 else "1")
+    return "".join(marks)
+
+
+# The landing's motion: one time section reveals, the hero's scroll pose and,
+# on a fine pointer, its tilt. With reduced motion it does nothing, so the
+# page keeps the final state the stylesheet gives it. Layout is read on load
+# and resize only; scroll and pointer handlers are passive and only queue a
+# frame, and the frame loop stops once the tilt has settled. The tilt is
+# aimed each frame from the last pointer position and the current scroll, so
+# a still pointer over a moving page keeps it true, and past the hero it
+# settles to flat.
+MOTION_SCRIPT = """<script>
+(function () {
+  if (!window.matchMedia || matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
+  document.documentElement.classList.add("motion");
+  var seen = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("in");
+      seen.unobserve(entry.target);
+    });
+  }, { rootMargin: "0px 0px -12% 0px" });
+  Array.prototype.forEach.call(document.querySelectorAll(".reveal"), function (el) { seen.observe(el); });
+
+  var scene = document.querySelector(".scene");
+  if (!scene) return;
+  var end = 1, midX = 0, midY = 0, tx = 0, ty = 0, pointer = null, frame = 0;
+  function measure() {
+    var box = scene.getBoundingClientRect();
+    end = Math.max(1, (box.bottom + scrollY) * 0.85);
+    midX = box.left + box.width / 2;
+    midY = box.top + scrollY + box.height / 2;
+  }
+  function clamp(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
+  function draw() {
+    frame = 0;
+    var aimX = 0, aimY = 0;
+    if (pointer && scrollY <= end) {
+      aimY = clamp((pointer.x - midX) / (innerWidth / 2)) * 6;
+      aimX = clamp((midY - scrollY - pointer.y) / (innerHeight / 2)) * 4;
+    }
+    tx += (aimX - tx) * 0.1;
+    ty += (aimY - ty) * 0.1;
+    if (Math.abs(aimX - tx) < 0.01 && Math.abs(aimY - ty) < 0.01) {
+      tx = aimX;
+      ty = aimY;
+    } else {
+      frame = requestAnimationFrame(draw);
+    }
+    scene.style.setProperty("--p", Math.min(1, scrollY / end).toFixed(4));
+    scene.style.setProperty("--tx", tx.toFixed(3) + "deg");
+    scene.style.setProperty("--ty", ty.toFixed(3) + "deg");
+  }
+  function queue() { if (!frame) frame = requestAnimationFrame(draw); }
+  measure();
+  draw();
+  addEventListener("scroll", queue, { passive: true });
+  addEventListener("resize", function () { measure(); queue(); }, { passive: true });
+  addEventListener("load", function () { measure(); queue(); });
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  document.addEventListener("pointermove", function (e) {
+    pointer = { x: e.clientX, y: e.clientY };
+    queue();
+  }, { passive: true });
 })();
 </script>"""
 
@@ -168,15 +274,27 @@ def actions() -> str:
     )
 
 
-def shot(spec: dict, sizes: str, eager: bool) -> str:
-    """A screenshot from /assets/shots at 600 and 900 pixels wide."""
+def shot(spec: dict, sizes: str, eager: bool, cutout: bool = False) -> str:
+    """A screenshot from /assets/shots at 600 and 900 pixels wide. A cutout
+    is a second, decorative copy of a shot already on the page: the same src,
+    srcset and sizes, so it resolves to the file already loaded."""
     src = f"{BASE}/assets/shots/{spec['stem']}"
-    load = 'fetchpriority="high"' if eager else 'loading="lazy"'
+    load = "" if cutout else ' fetchpriority="high"' if eager else ' loading="lazy"'
+    alt = "" if cutout else spec["alt"]
     return (
         f'<img src="{esc(src)}-600.webp" srcset="{esc(src)}-600.webp 600w, {esc(src)}-900.webp 900w" '
         f'sizes="{esc(sizes)}" width="{int(spec["width"])}" height="{int(spec["height"])}" '
-        f'alt="{esc(spec["alt"])}" {load} decoding="async">'
+        f'alt="{esc(alt)}"{load} decoding="async">'
     )
+
+
+def field() -> str:
+    """The hero's back plane: the app's year grid, a band per habit."""
+    bands = "".join(
+        '<div class="habit">' + "".join(f'<i class="{FIELD_CLASS[m]}"></i>' for m in year_grid(*h)) + "</div>"
+        for h in FIELD_HABITS
+    )
+    return f'<div class="field" aria-hidden="true">{bands}</div>'
 
 
 def rows(items: list, tag: str = "ul", cls: str = "rows") -> str:
@@ -225,7 +343,7 @@ def rail(cls: str, head: str, body: str, section_id: str = "") -> str:
 def landing_main() -> str:
     hero, pairing, features, pricing = LANDING["hero_shot"], LANDING["pairing"], LANDING["features"], LANDING["pricing"]
     price = esc(FACTS["price"])
-    price_heading = (esc(pricing["heading"]).replace(price, f'<span class="price">{price}</span>')
+    price_heading = (esc(pricing["heading"]).replace(price, f'<span class="price"><span class="price-num">{price}</span></span>')
                      + f' <span class="terms">{esc(pricing["terms"])}</span>')
     parts = [
         '<section class="hero">\n'
@@ -235,26 +353,35 @@ def landing_main() -> str:
         f"{actions()}\n"
         f'<p class="store-note">{esc(LANDING["store_note"])}</p>\n'
         "</div>\n"
+        # One scene in three planes: the year grid, the phone, and the
+        # partner's reaction lifted out of the screen (see site.css).
         '<figure class="hero-shot">\n'
-        '<div class="shot-clip"><div class="device"><div class="screen">'
+        '<div class="scene">\n<div class="stage">\n'
+        f"{field()}\n"
+        '<div class="device phone"><div class="screen">'
         f"{shot(hero, HERO_SIZES, eager=True)}"
-        '<span class="ring" aria-hidden="true"></span></div></div></div>\n'
+        '<span class="socket"></span>'
+        '<div class="lift" aria-hidden="true"><div class="lift-card">'
+        f"{shot(hero, HERO_SIZES, eager=True, cutout=True)}"
+        '</div><span class="ring"></span></div>'
+        "</div></div>\n"
+        "</div>\n</div>\n"
         f'<figcaption class="callout">{esc(LANDING["callout"])}</figcaption>\n'
         "</figure>\n"
         "</section>",
         rail("pairing",
              f"<h2>{esc(pairing['heading'])}</h2>\n"
              f'<p class="section-intro">{rich(pairing["intro"])}</p>',
-             rows(pairing["steps"], "ol", "rows steps")),
+             rows(pairing["steps"], "ol", "rows steps reveal")),
         # The screenshot is its own grid item: under the heading in the rail
         # on wide screens, after the rows on a phone.
         rail("features",
              f"<h2>{esc(features['heading'])}</h2>",
              f'{rows(features["items"])}\n'
-             f'<figure class="features-shot"><div class="device whole"><div class="screen">'
+             f'<figure class="features-shot reveal"><div class="device whole"><div class="screen">'
              f'{shot(features["shot"], FEATURE_SIZES, eager=False)}</div></div></figure>'),
         '<section class="pricing">\n'
-        f'<h2 class="price-row">{price_heading}</h2>\n'
+        f'<h2 class="price-row reveal">{price_heading}</h2>\n'
         f'{rows(pricing["tiers"], "ul", "tiers")}\n'
         "</section>",
         rail("guides-list",
@@ -268,6 +395,7 @@ def landing_main() -> str:
         f"{actions()}\n"
         "</section>",
         SHARE_SCRIPT,
+        MOTION_SCRIPT,
     ]
     return "\n".join(parts)
 

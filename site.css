@@ -1,5 +1,8 @@
 /* HabitFlame site: one stylesheet for the landing, the guides and the policy
-   pages. Dark only. One family, one accent, rows and hairlines. */
+   pages. Dark only, like the app, which opens dark and never follows the
+   system. One family, one accent, rows and hairlines. The palette is the
+   app's own; docs/superpowers/specs/2026-10-16-app-colours-depth-motion.md
+   gives the source of every value. */
 
 @font-face {
   font-family: "Bricolage Grotesque";
@@ -21,17 +24,21 @@
 
 :root {
   color-scheme: dark;
-  --ground: #07080B;
-  --surface: #0F1116;
-  --surface-2: #15181F;
-  --ink: #E6E8EB;
-  --body: #CDD0D4;
-  --muted: #9BA1A8;
-  --line: rgba(255, 255, 255, 0.11);
-  --line-strong: rgba(255, 255, 255, 0.24);
-  --ember: #FFBE5C;
-  --ember-hover: #FFCB7A;
-  --on-ember: #07080B;
+  /* iOS dark system colours, as the app draws them. */
+  --ground: #000000;
+  --surface: #1C1C1E;
+  --surface-2: #2C2C2E;
+  --ink: #FFFFFF;
+  --body: #D3D3DC;
+  --muted: #A2A2A9;
+  --line: rgba(84, 84, 88, 0.65);
+  --line-strong: rgba(235, 235, 245, 0.3);
+  /* The app's themeOrange, for marks that carry no text, and the same hue
+     lifted until black ink on it reaches APCA Lc 75, for text and buttons. */
+  --flame: #E67E00;
+  --ember: #FFBD6C;
+  --ember-hover: #FFCA8A;
+  --on-ember: #000000;
 
   --font: "Bricolage Grotesque", "Bricolage Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --fs-small: 0.9375rem;
@@ -259,6 +266,26 @@ main,
   border-color: var(--ink);
 }
 
+/* Buttons answer a hover with a 1px lift and a press with a small give.
+   Text links do not move. */
+.store,
+.share,
+.top-links .store-link {
+  transition: transform 0.16s ease-out, background-color 0.16s ease-out, border-color 0.16s ease-out;
+}
+
+.store:hover,
+.share:hover,
+.top-links .store-link:hover {
+  transform: translateY(-1px);
+}
+
+.store:active,
+.share:active,
+.top-links .store-link:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .store-note {
   margin-top: 16px;
   color: var(--muted);
@@ -317,50 +344,200 @@ dt {
   padding-block: 24px 72px;
 }
 
-/* The phone stands on the hero's bottom hairline. Every size below is a
-   share of the shot width, so the ring stays on the reaction row. */
+/* The hero is one scene in three planes: the app's year grid behind, the
+   Partners screen, and Jordan's reaction lifted out of that screen toward
+   the reader. All three stand on the hero's bottom hairline: the
+   perspective origin and every transform origin sit on it, and the scene is
+   clipped there. The script sets --p, the scroll position through the hero
+   (0 at the top, 1 at the rest pose), and --tx and --ty, the pointer tilt.
+   Sizes inside the screen are shares of the screenshot, so the lifted row
+   matches its slot to the pixel. */
 .hero-shot {
   --shot: var(--phone-shot);
+  --screen: calc(var(--shot) - 16px);
+  --card-r: calc(var(--screen) * 0.0578);
+  --headroom: 136px;
+  --eye-x: calc(100% - var(--shot) / 2);
+  --scene-eye-x: calc(100% - 16px - var(--shot) / 2);
+  position: relative;
+  display: grid;
+  align-self: end;
+  container-type: inline-size;
+}
+
+/* The scene clips on every side: at the hairline below, and 16px out into
+   the gutter at the sides and the headroom above, so a tilted edge is never
+   cut and nothing in the scene can widen the page. */
+.scene {
+  --p: 0;
+  --tx: 0deg;
+  --ty: 0deg;
+  margin: calc(-1 * var(--headroom)) -16px 0;
+  padding: var(--headroom) 16px 0;
+  perspective: 1100px;
+  perspective-origin: var(--scene-eye-x) 100%;
+  overflow: clip;
+}
+
+.stage {
   position: relative;
   display: grid;
   justify-items: end;
-  align-self: end;
+  transform-style: preserve-3d;
+  transform-origin: var(--eye-x) 100%;
+  transform: rotateX(var(--tx)) rotateY(var(--ty));
 }
 
-.shot-clip {
+/* Back plane: the app's year grid (YearGridView), one band per habit, a
+   column per week and a row per day, cells and gaps in the app's 12 to 3
+   ratio. 20 weeks span the column: 20 cells and 19 gaps of a quarter cell
+   make 24.75 cells. It sits 180px behind the phone and is scaled back up by
+   (1100 + 180) / 1100, so it still spans the column. */
+.field {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  row-gap: calc(100cqi / 24.75);
+  transform-origin: var(--eye-x) 100%;
+  transform: translate3d(0, calc(28px * var(--p)), -180px) scale(1.1636);
+  will-change: transform;
+}
+
+.habit {
+  display: grid;
+  grid-template-rows: repeat(7, auto);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: calc(100cqi / 99);
+}
+
+/* As the app draws a day, kept in the app's proportions but at the
+   strength of something far behind: a missed day is the empty cell, days
+   before the habit existed and the future are fainter, done days are the
+   habit colour at four steps, and today carries the app's stroke. */
+.field i {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--surface);
+  opacity: 0.5;
+}
+
+.field .b {
+  opacity: 0.25;
+}
+
+.field .f {
+  opacity: 0.16;
+}
+
+.field .l1,
+.field .l2,
+.field .l3,
+.field .l4,
+.field .t {
+  background: var(--flame);
+}
+
+.field .l1 {
+  opacity: 0.09;
+}
+
+.field .l2 {
+  opacity: 0.15;
+}
+
+.field .l3 {
+  opacity: 0.21;
+}
+
+.field .l4,
+.field .t {
+  opacity: 0.3;
+}
+
+.field .t {
+  outline: 1px solid var(--ink);
+  outline-offset: -1px;
+}
+
+/* Subject plane: the phone, turned toward the copy and leaning back; it
+   straightens as the hero scrolls away. */
+.phone {
+  position: relative;
   width: var(--shot);
-  overflow: hidden;
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transform: rotateY(calc(18deg - 14deg * var(--p))) rotateX(calc(8deg - 7deg * var(--p)));
+  box-shadow: -28px 20px 44px rgba(0, 0, 0, 0.85);
+  will-change: transform;
 }
 
 .device {
   padding: 7px 7px 0;
   border: 1px solid var(--line);
   border-bottom: 0;
-  border-radius: calc((var(--shot) - 16px) * 0.125 + 8px) calc((var(--shot) - 16px) * 0.125 + 8px) 0 0;
+  border-radius: calc(var(--screen) * 0.125 + 8px) calc(var(--screen) * 0.125 + 8px) 0 0;
   background: var(--surface-2);
 }
 
 .screen {
   position: relative;
+  transform-style: preserve-3d;
 }
 
-.device .screen img {
+.screen > img {
   width: 100%;
-  border-radius: calc((var(--shot) - 16px) * 0.125) calc((var(--shot) - 16px) * 0.125) 0 0;
+  border-radius: calc(var(--screen) * 0.125) calc(var(--screen) * 0.125) 0 0;
 }
 
-/* Around "Jordan sent a flame for Morning Run" in the Partners shot. */
+/* "Jordan sent a flame for Morning Run": x 41 to 859 and y 575 to 716 of
+   the 900 by 1211 screenshot. The socket is the slot it leaves in the list;
+   the lift is the row itself, cut from the same image. */
+.socket,
+.lift {
+  position: absolute;
+  top: 47.481%;
+  left: 4.556%;
+  width: 90.889%;
+  height: 11.643%;
+}
+
+.socket {
+  border-radius: var(--card-r) var(--card-r) 0 0;
+  background: var(--ground);
+}
+
+/* Foreground plane: the row, lifted toward the reader. */
+.lift {
+  transform: translateZ(calc(44px + 16px * var(--p)));
+  will-change: transform;
+}
+
+.lift-card {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--card-r);
+  box-shadow: -8px 16px 24px rgba(0, 0, 0, 0.7);
+}
+
+.lift-card > img {
+  position: absolute;
+  top: -407.8%;
+  left: -5.0122%;
+  width: 110.0244%;
+  max-width: none;
+}
+
 .ring {
   position: absolute;
-  left: 6.4%;
-  top: 48.2%;
-  width: 87.2%;
-  height: 10.4%;
+  inset: -5px;
   border: 1.5px solid var(--ember);
-  border-radius: 12px;
+  border-radius: calc(var(--card-r) + 5px);
 }
 
 .callout {
+  justify-self: end;
   width: var(--shot);
   margin-bottom: 16px;
   color: var(--ember);
@@ -371,53 +548,100 @@ dt {
   order: -1;
 }
 
+/* Wide screens: the label sits left of the phone on a plate of ground, in
+   flat page space so it stays crisp. Its leader belongs to the lifted row,
+   so it stays on the ring in every pose and runs on under the plate. */
 @media (min-width: 75em) {
   .callout {
     position: absolute;
-    right: calc(var(--shot) + 20px);
-    bottom: calc((var(--shot) - 16px) * 0.615);
+    z-index: 1;
+    right: calc(var(--shot) + 16px);
+    bottom: calc(var(--screen) * 0.6284);
     width: 10em;
     margin: 0;
+    padding: 8px 0 8px 12px;
+    background: var(--ground);
+    /* A solid edge of ground, so the plate's fractional edge never leaves
+       a half covered row of pixels over the grid. */
+    box-shadow: 0 0 0 2px var(--ground);
     text-align: right;
     translate: 0 50%;
   }
 
-  .callout::after {
+  .ring::before {
     content: "";
     position: absolute;
-    left: calc(100% + 8px);
     top: 50%;
-    width: calc(12px + 8px + (var(--shot) - 16px) * 0.064);
+    right: 100%;
+    width: calc(var(--screen) * 0.0456 + 48px);
     border-top: 1.5px solid var(--ember);
   }
 }
 
-/* The one orchestrated moment: the phone rises out of the hairline, then
-   the ring and the callout point at Jordan's reaction. */
+/* The load sequence: the grid settles, the phone rises out of the hairline,
+   the reaction lifts out of its slot and the ring settles round it; the copy
+   appears as the planes land. */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-shot .device {
-    animation: rise 1s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  .field {
+    animation: field-in 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) both;
   }
 
-  .hero-shot .ring {
-    animation: ring-in 0.4s ease-out 0.9s both;
+  .phone {
+    animation: rise 1s cubic-bezier(0.2, 0.7, 0.1, 1) 0.1s both;
   }
 
-  .hero-shot .callout {
-    animation: fade-in 0.4s ease-out 1.05s both;
+  .lift {
+    animation: lift-out 0.6s cubic-bezier(0.2, 0.7, 0.1, 1) 0.85s both;
+  }
+
+  .ring {
+    animation: ring-in 0.4s ease-out 1.05s both;
+  }
+
+  .callout {
+    animation: fade-in 0.4s ease-out 1.2s both;
+  }
+
+  .hero-copy > * {
+    animation: copy-in 0.6s cubic-bezier(0.2, 0.7, 0.1, 1) 0.45s both;
+  }
+
+  .hero-copy > :nth-child(2) {
+    animation-delay: 0.53s;
+  }
+
+  .hero-copy > :nth-child(3) {
+    animation-delay: 0.61s;
+  }
+
+  .hero-copy > :nth-child(4) {
+    animation-delay: 0.69s;
+  }
+}
+
+@keyframes field-in {
+  from {
+    opacity: 0;
+    translate: 0 0 -90px;
   }
 }
 
 @keyframes rise {
   from {
-    transform: translateY(28%);
+    translate: 0 30%;
+  }
+}
+
+@keyframes lift-out {
+  from {
+    translate: 0 0 -44px;
   }
 }
 
 @keyframes ring-in {
   from {
     opacity: 0;
-    transform: scale(1.05);
+    scale: 1.06;
   }
 }
 
@@ -427,6 +651,15 @@ dt {
   }
 }
 
+@keyframes copy-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+/* Reduced motion: nothing moves, and the scene holds its rest pose with the
+   depth intact. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -434,6 +667,12 @@ dt {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+
+  .scene {
+    --p: 1 !important;
+    --tx: 0deg !important;
+    --ty: 0deg !important;
   }
 }
 
@@ -543,9 +782,93 @@ main > section + section {
   letter-spacing: -0.02em;
 }
 
+/* The price can rise from behind its own baseline: the number moves inside
+   a box that clips at the line. */
 .price {
+  display: inline-block;
   font-variant-numeric: lining-nums tabular-nums;
 }
+
+.price-num {
+  display: inline-block;
+}
+
+/* Section reveals. Each plays once, when the script adds .in the first time
+   its block is in view, and each answers its content: the pairing steps
+   wipe in along their hairlines, the Today screenshot squares up from its
+   turned pose, the price arrives. The hidden states need the .motion class
+   the script sets, so without the script every section shows as it ends.
+   The animations fill backwards only, so nothing stays clipped after. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion .steps:not(.in) li {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  .motion .steps.in li {
+    animation: wipe 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  }
+
+  .motion .steps.in li:nth-child(2) {
+    animation-delay: 0.14s;
+  }
+
+  .motion .steps.in li:nth-child(3) {
+    animation-delay: 0.28s;
+  }
+
+  .motion .features-shot:not(.in) .device {
+    transform: perspective(1200px) rotateY(-16deg) rotateX(10deg);
+  }
+
+  .motion .features-shot.in .device {
+    animation: square-up 1s cubic-bezier(0.2, 0.7, 0.1, 1) backwards;
+  }
+
+  /* The row waits whole, so a half shown sentence never sits on screen;
+     it comes in, then the number rises into it. */
+  .motion .price-row .price {
+    clip-path: inset(0);
+  }
+
+  .motion .price-row:not(.in) {
+    opacity: 0;
+  }
+
+  .motion .price-row.in {
+    animation: fade-in 0.2s ease-out backwards;
+  }
+
+  .motion .price-row.in .price-num {
+    animation: price-up 0.7s cubic-bezier(0.2, 0.7, 0.1, 1) 0.1s backwards;
+  }
+
+  .motion .price-row.in .terms {
+    animation: fade-in 0.4s ease-out 0.55s backwards;
+  }
+}
+
+@keyframes wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes square-up {
+  from {
+    transform: perspective(1200px) rotateY(-16deg) rotateX(10deg);
+  }
+}
+
+@keyframes price-up {
+  from {
+    translate: 0 110%;
+  }
+}
+
 
 .terms {
   display: block;
@@ -768,6 +1091,18 @@ main > section + section {
 
 /* ---- Narrow screens --------------------------------------------------- */
 
+@media (max-width: 74.99em) {
+  /* The label moves above the phone, so the scene needs no room over it,
+     and the grid keeps two habits so it stays below the phone's top. */
+  .hero-shot {
+    --headroom: 24px;
+  }
+
+  .field .habit:first-child {
+    display: none;
+  }
+}
+
 @media (max-width: 63.99em) {
   :root {
     --col-gap: 40px;
@@ -787,10 +1122,16 @@ main > section + section {
 
   .hero-shot {
     --shot: min(var(--phone-shot), 60vw);
+    --eye-x: 50%;
+    --scene-eye-x: 50%;
+  }
+
+  .stage {
     justify-items: center;
   }
 
   .callout {
+    justify-self: center;
     text-align: center;
   }
 

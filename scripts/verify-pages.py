@@ -12,6 +12,7 @@ prose hygiene, the sitemap, the policy pages, stale output, vercel.json, the
 app site association file and published assets.
 """
 import codecs
+import colorsys
 import datetime
 import hashlib
 import html as htmlmod
@@ -49,8 +50,17 @@ PINNED_CONTACT = "support@freedom-terminal.com"
 PINNED_ROBOTS_META = "index, follow, max-image-preview:large, max-snippet:-1"
 # The share card and the one font file, both under /assets (published files
 # there never change in place, so a new version gets a new name).
-PINNED_OG_IMAGE = "assets/og/site-2026-10-16.png"
+PINNED_OG_IMAGE = "assets/og/site-2026-10-16-app.png"
 PINNED_FONT = "assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2"
+# The page wears the app's palette (landing pass 2, 2026-10-16). Sources in
+# the app repository: the app opens dark (UserSettings.swift appearanceModeRaw
+# "dark", MainTabView.swift colorScheme), so the ground is iOS systemBackground
+# in dark; surface is secondarySystemBackground and systemGray6 in dark, the
+# grouped cards and the empty year grid cell; flame is Color.themeOrange in
+# ColorHelpers.swift, the tint of the whole tab view. Every chromatic colour
+# in site.css sits on flame's hue, within APP_HUE_TOLERANCE degrees.
+PINNED_PALETTE = {"ground": "#000000", "surface": "#1C1C1E", "flame": "#E67E00"}
+APP_HUE_TOLERANCE = 1.0
 TITLE_LIMIT = 63
 # App facts, pinned here as well as in pages.json so a change to both at once
 # still has to touch this file. Sources in the app repository:
@@ -784,6 +794,8 @@ for page, rel in HTML_PAGES:
     check(meta(root, "name", "robots") == PINNED_ROBOTS_META, f"{rel}: robots meta is {meta(root, 'name', 'robots')!r}, want {PINNED_ROBOTS_META!r}")
     check(meta(root, "property", "og:site_name") == PINNED_NAME, f"{rel}: og:site_name is not {PINNED_NAME}")
     check(meta(root, "property", "og:locale") == "en_US", f"{rel}: og:locale is not en_US")
+    check(meta(root, "name", "theme-color") == PINNED_PALETTE["ground"],
+          f"{rel}: theme-color is {meta(root, 'name', 'theme-color')!r}, want the ground {PINNED_PALETTE['ground']}")
     for key, attr in (("og:image", "property"), ("twitter:image", "name")):
         check(meta(root, attr, key) == f"{PINNED_BASE_URL}/{PINNED_OG_IMAGE}", f"{rel}: {key} is {meta(root, attr, key)!r}")
     check((meta(root, "property", "og:image:width"), meta(root, "property", "og:image:height")) == ("1200", "630"),
@@ -882,12 +894,13 @@ for form, count in premium_free_forms.items():
 for form, count in visibility_forms.items():
     check(count > 0, f"facts.visibility_forms has {form!r}, which no page uses (remove it)")
 
-# l. Text colors in site.css. The site is dark only (the portfolio landing
-#    brief of 2026-10-16). Every text color meets 4.5:1 on every ground, and
-#    the brief's APCA rules hold: ember text on the ground reaches Lc 60, ink
-#    on an ember button Lc 75, running text Lc 75, and fine print (muted)
-#    stays at Lc 45 or more. The skip link hides with a transform, never a
-#    negative top, which leaves a visible bar when the link is taller.
+# l. Text colors in site.css. The site is dark only, like the app. Every text
+#    color meets 4.5:1 on every ground, and the briefs' APCA rules hold:
+#    headings (ink) reach Lc 90, running text Lc 75, ember text on the ground
+#    Lc 60, ink on an ember button Lc 75, and fine print (muted) stays at
+#    Lc 45 or more. The palette is pinned to the app's values and has one
+#    chromatic hue, the app's orange. The skip link hides with a transform,
+#    never a negative top, which leaves a visible bar when the link is taller.
 CSS = (ROOT / gen.STYLESHEET).read_text(encoding="utf-8")
 check(gen.STYLESHEET == "site.css", f"generator stylesheet is {gen.STYLESHEET!r}; styles.css belongs to the invite page")
 check(gen.FONT == PINNED_FONT and (ROOT / PINNED_FONT).is_file(), f"generator font {gen.FONT!r} is not the pinned file {PINNED_FONT!r}")
@@ -966,8 +979,24 @@ if root_m:
     pairs = [(f"--{t} on --{b}", f"var(--{t})", f"var(--{b})") for t in ("ink", "body", "muted", "ember") for b in ("ground", "surface", "surface-2")]
     buttons = [("skip link", skip), ("skip link hover", skip_hover), ("store button", store), ("store button hover", hover)]
     pairs += [(name, rule.get("color", ""), rule.get("background", "")) for name, rule in buttons]
-    apca_floor = {"--ember on --ground": 60, "--body on --ground": 75, "--ink on --ground": 75, "--muted on --ground": 45}
+    apca_floor = {"--ember on --ground": 60, "--body on --ground": 75, "--ink on --ground": 90, "--muted on --ground": 45}
     apca_floor.update({name: 75 for name, _ in buttons})
+    for token, want in PINNED_PALETTE.items():
+        check(env.get(token, "").upper() == want, f"site.css: --{token} is {env.get(token)!r}, pinned {want} from the app")
+    # One chromatic hue: any colour in the stylesheet with real chroma sits on
+    # the app's orange. Near greys with the iOS cool tint have chroma under 0.12.
+    flame_hue = colorsys.rgb_to_hls(*rgb(PINNED_PALETTE["flame"]))[0] * 360
+    for m in re.finditer(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})", CSS):
+        if m.group(1):
+            h6 = m.group(1) if len(m.group(1)) == 6 else "".join(ch * 2 for ch in m.group(1))
+            chans = rgb("#" + h6)
+        else:
+            chans = [int(m.group(k)) / 255 for k in (2, 3, 4)]
+        if max(chans) - min(chans) <= 0.12:
+            continue
+        hue = colorsys.rgb_to_hls(*chans)[0] * 360
+        off = min(abs(hue - flame_hue), 360 - abs(hue - flame_hue))
+        check(off <= APP_HUE_TOLERANCE, f"site.css: {m.group(0)} has hue {hue:.1f}, {off:.1f} degrees off the app's orange ({flame_hue:.1f}); the page has one accent hue")
     worst, worst_apca = [], []
     for name, fg, bg in pairs:
         try:
@@ -1380,11 +1409,30 @@ except OSError:
 # way: Apple reads the components in order, so an added exclusion would stop
 # invite links opening the app while every presence check still passed.
 AASA_SHA256 = "338141d1c33ec3d86900cad72371a18e08a8ce2c274a7d66ed5b49514ef75968"
-STYLES_SHA256 = "53f0a43c0d5c6109c5aea62a98b8f9ace1f2cd97aef0244c7f574e583b7346bc"
+STYLES_SHA256 = "0e8a6071735c647d326f9cc3a9744ab098b389698eed339afa15ee50247de639"
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-INVITE_SHA256 = "9d1f0814edfbb7e43d4d4809deb714701e480dfa5e0e75eb30713d812daabc0a"
+# The invite flow lives in the page's one script element. Its bytes are pinned
+# on their own as well, so a change to the page's chrome (its palette, its
+# header) can move INVITE_SHA256 while this hash proves the flow is untouched.
+INVITE_SCRIPT_SHA256 = "37e4a895749b5380dac55cdaa7cd7351cd4f74d6bfadb9771dbcd663332745c0"
+_invite_scripts = re.findall(r"<script>(.*?)</script>", INVITE, re.S)
+check(len(_invite_scripts) == 1 and hashlib.sha256(_invite_scripts[0].encode("utf-8")).hexdigest() == INVITE_SCRIPT_SHA256,
+      "invite.html: the invite script changed; test the invite flow on a device, then update INVITE_SCRIPT_SHA256")
+# The invite page's stylesheet carries the same palette as site.css.
+try:
+    _styles_root = re.search(r"(?m)^:root\s*\{([^}]*)\}", (ROOT / "styles.css").read_text(encoding="utf-8"))
+    _invite_env = css_vars(_styles_root.group(1)) if _styles_root else {}
+    _site_env = css_vars(root_m.group(1)) if root_m else {}
+    for _token in ("ground", "surface", "surface-2", "ink", "body", "muted", "line", "line-strong", "ember", "ember-hover", "on-ember"):
+        check(_invite_env.get(_token) == _site_env.get(_token),
+              f"styles.css: --{_token} is {_invite_env.get(_token)!r}, site.css has {_site_env.get(_token)!r}")
+except OSError:
+    pass
+check(f'<meta name="theme-color" content="{PINNED_PALETTE["ground"]}">' in INVITE,
+      f"invite.html: theme-color is not the ground {PINNED_PALETTE['ground']}")
+INVITE_SHA256 = "7e0611be2aefaf2c172b573ae9a2c09ea1beeb4fb94b7accd300c532228f55e8"
 check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
                'href="https://apps.apple.com/app/id6756961710"'):

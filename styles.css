@@ -21,17 +21,17 @@
 
 :root {
   color-scheme: dark;
-  --ground: #07080B;
-  --surface: #0F1116;
-  --surface-2: #15181F;
-  --ink: #E6E8EB;
-  --body: #CDD0D4;
-  --muted: #9BA1A8;
-  --line: rgba(255, 255, 255, 0.11);
-  --line-strong: rgba(255, 255, 255, 0.24);
-  --ember: #FFBE5C;
-  --ember-hover: #FFCB7A;
-  --on-ember: #07080B;
+  --ground: #000000;
+  --surface: #1C1C1E;
+  --surface-2: #2C2C2E;
+  --ink: #FFFFFF;
+  --body: #D3D3DC;
+  --muted: #A2A2A9;
+  --line: rgba(84, 84, 88, 0.65);
+  --line-strong: rgba(235, 235, 245, 0.3);
+  --ember: #FFBD6C;
+  --ember-hover: #FFCA8A;
+  --on-ember: #000000;
   --font: "Bricolage Grotesque", "Bricolage Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --fs-small: 0.9375rem;
   --fs-body: clamp(1rem, 0.974rem + 0.11vw, 1.0625rem);
