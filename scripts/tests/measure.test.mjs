@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ENDPOINT, TOKEN, STORAGE_KEY, UUID_V7,
   uuidv7, tabId, reportedPath, referrerAddress, referringDomain, deviceType, utmParams,
-  declinesMeasurement, measurable, pageContext, buildPayload, install,
+  declinesMeasurement, measurable, isLocalHost, pageContext, buildPayload, install,
 } from '../../measure.js';
 
 // The site's measurement module posts two events straight to PostHog's
@@ -424,13 +424,44 @@ for (const [label, nav] of [['Global Privacy Control', { globalPrivacyControl: t
   });
 }
 
-test('a local page sends nothing', () => {
-  for (const url of ['http://localhost:8000/', 'http://127.0.0.1:5173/support']) {
-    const w = world({ url });
+// Every way a copy of the site can be served from this machine or the local
+// network: loopback names and addresses in any spelling a browser leaves in
+// location.hostname, the unspecified address, mDNS and .localhost names,
+// and opened files.
+const LOCAL_URLS = [
+  'http://localhost:8000/', 'http://localhost.:8000/', 'http://LOCALHOST:3000/support',
+  'http://127.0.0.1:5173/support', 'http://127.0.0.2/', 'http://127.255.255.254:8080/',
+  'http://[::1]:8000/', 'http://[0:0:0:0:0:0:0:1]/', 'http://[::ffff:127.0.0.1]/',
+  'http://0.0.0.0:8080/', 'http://macbook.local/', 'http://macbook.local.:8000/',
+  'http://habitflame.localhost/', 'http://app.localhost.:3000/', 'file:///Users/x/habitflame-web/index.html',
+];
+
+test('a local page sends nothing, stores nothing and listens for nothing', () => {
+  for (const url of LOCAL_URLS) {
+    const storage = memoryStorage();
+    const w = world({ url, storage });
     install(w.doc, w.navigator, w.win);
     w.fire('click', { target: link(STORE, 'home_hero').image });
-    assert.deepEqual(w.sent, [], url);
+    assert.deepEqual(w.sent, [], `${url} sent`);
+    assert.equal(storage.map.size, 0, `${url} stored an id`);
+    assert.equal(w.listeners.size, 0, `${url} listened`);
+    assert.deepEqual(w.touched, [], `${url} touched cookies or localStorage`);
   }
+});
+
+test('every loopback and local host is not measurable, and public hosts are', () => {
+  for (const url of LOCAL_URLS) {
+    const at = new URL(url);
+    assert.equal(isLocalHost(at.hostname) || at.protocol === 'file:', true, url);
+    assert.equal(measurable({}, { hostname: at.hostname, protocol: at.protocol }), false, url);
+  }
+  for (const host of ['habitflame.vishutdhar.com', 'habitflame-web-git-x-vishutdhar.vercel.app', 'vishutdhar.github.io',
+    'localhost.example.com', 'local.example.com', '128.0.0.1', '10.0.0.1', 'my-localhost-blog.com', '[2606:4700::1]']) {
+    assert.equal(isLocalHost(host), false, host);
+    assert.equal(measurable({}, { hostname: host, protocol: 'https:' }), true, host);
+  }
+  assert.equal(isLocalHost(''), true, 'an empty host is never measured');
+  assert.equal(isLocalHost(undefined), true);
 });
 
 test('a click on a store link sends one store_link_clicked with its placement', () => {

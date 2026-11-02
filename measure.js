@@ -1,11 +1,12 @@
 // Site measurement: anonymous page views and App Store link clicks, posted
 // straight to PostHog's capture endpoint.
 //
-// No analytics SDK and no third party script: this file is served from this
+// No PostHog SDK and no third party script: this file is served from this
 // site. No cookies, no localStorage, no person profiles, no autocapture, no
 // replay. The only identifier is a random UUID kept in sessionStorage for the
 // life of the tab. A browser that sends Global Privacy Control or Do Not Track
-// is not measured at all, and nothing is sent from a local copy of the site.
+// is not measured at all, and nothing is sent from a copy of the site served
+// from this machine or the local network, or opened as a file.
 // The privacy policy page never loads this file.
 //
 // Addresses are sent without their query or fragment. An invite link carries
@@ -123,12 +124,27 @@ export function declinesMeasurement(nav) {
   return nav?.globalPrivacyControl === true || nav?.doNotTrack === '1';
 }
 
-/// Whether this page load may send anything: a real host over http or https,
-/// and a browser that has not asked not to be measured.
+/// Whether a host is this machine or the local network: localhost and any
+/// name under .localhost, mDNS names under .local, the whole 127.0.0.0/8
+/// loopback block, IPv6 loopback in the forms a browser leaves in
+/// location.hostname (an IPv4 mapped loopback included), and the unspecified
+/// address 0.0.0.0. A trailing dot changes nothing; a missing host counts as
+/// local, so it is never measured.
+export function isLocalHost(hostname) {
+  if (typeof hostname !== 'string') return true;
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  if (host === '') return true;
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  if (host === '0.0.0.0' || /^127(?:\.\d{1,3}){3}$/.test(host)) return true;
+  return host === '[::1]' || host === '::1' || /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/.test(host);
+}
+
+/// Whether this page load may send anything: a public host over http or
+/// https, and a browser that has not asked not to be measured.
 export function measurable(nav, location) {
   if (declinesMeasurement(nav)) return false;
   if (location?.protocol !== 'https:' && location?.protocol !== 'http:') return false;
-  return location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  return !isLocalHost(location.hostname);
 }
 
 /// What an event says about the page it came from, read at the moment it is

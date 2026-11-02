@@ -11,14 +11,12 @@ carries one fails.
 """
 import pathlib
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
 import types
 import unittest
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
+
+from gate_copy import GateCopy
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GEN_PATH = ROOT / "scripts" / "build-pages.py"
@@ -149,41 +147,11 @@ class CampaignLinks(unittest.TestCase):
                     gen.outputs()
 
 
-class GateInBothStates(unittest.TestCase):
+class GateInBothStates(GateCopy, unittest.TestCase):
     """The site gate, run on a copy of the repository, in each state of the
     provider token. The gate checks a fresh render and holds every committed
     page byte equal to it, so its link rules are shown failing on a copy
     whose generator was broken, and the byte rule on a page edited by hand."""
-
-    def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory(prefix="habitflame-web-gate-")
-        self.site = pathlib.Path(self._tmp.name) / "site"
-        shutil.copytree(ROOT, self.site, ignore=shutil.ignore_patterns(".git", ".vercel", "node_modules"))
-
-    def tearDown(self):
-        self._tmp.cleanup()
-
-    def set_token(self, pt: str) -> None:
-        config = self.site / "scripts" / "pages.json"
-        text = config.read_text(encoding="utf-8")
-        new, n = re.subn(r'"app_store_campaign": \{"pt": "[0-9]*"\}', f'"app_store_campaign": {{"pt": "{pt}"}}', text)
-        self.assertEqual(n, 1, "pages.json has no app_store_campaign entry to set")
-        config.write_text(new, encoding="utf-8")
-
-    def run_script(self, name: str) -> subprocess.CompletedProcess:
-        return subprocess.run([sys.executable, str(self.site / "scripts" / name)], capture_output=True, text=True)
-
-    def build_and_gate(self) -> subprocess.CompletedProcess:
-        built = self.run_script("build-pages.py")
-        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
-        return self.run_script("verify-pages.py")
-
-    def edit(self, rel: str, old: str, new: str) -> None:
-        """Replace the first occurrence of old in one file of the copy."""
-        path = self.site / rel
-        text = path.read_text(encoding="utf-8")
-        self.assertIn(old, text)
-        path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
     def test_with_a_token_set_the_gate_passes(self):
         self.set_token(TOKEN)

@@ -89,6 +89,19 @@ PINNED_PLACEMENTS = {
     "invite.html": ["invite_step", "invite_fallback", "invite_footer"],
 }
 GUIDE_PLACEMENTS = ["guide_nav", "guide_head", "guide_cta", "guide_footer"]
+# The landing's structured data, shown in search results with no page around
+# it to qualify it, so every limit is in the sentence itself: a completion
+# reaches the partner only when made in the app for today (a widget
+# completion or a backfilled day sends no alert: HabitCompletionEffects and
+# WidgetIntents), and only with Premium. Pinned here so a change to
+# pages.json alone cannot move it.
+PINNED_APP_DESCRIPTION = (
+    "HabitFlame is a habit tracker for iPhone and iPad. Track habits your way, keep streaks alive and pair with an "
+    "accountability partner who can nudge you when you go quiet. With Premium, each shared habit you complete in the "
+    "app for today reaches your partner the moment you do it.")
+PINNED_PREMIUM_DESCRIPTION = (
+    "A one-time in-app purchase, not a subscription, that removes the 5 habit limit and adds habit stacking, smart "
+    "insights, real-time partner updates and unlimited partner nudges.")
 # Campaign tokens, one per page. App Analytics reports App Store page views
 # and downloads by these exact strings, so renaming one splits a page's
 # history in two: they are pinned here as well as set in pages.json. Apple
@@ -931,12 +944,18 @@ for page, rel in HTML_PAGES:
             # add-on offer at the one-time price (schema.org Offer.addOn,
             # "an additional offer that can only be obtained in combination
             # with the first base offer"). The icon is the app's own
-            # AppIcon.png, the screenshot the hero's Partners shot. Only the
-            # two descriptions come from pages.json, and they must be there.
+            # AppIcon.png, the screenshot the hero's Partners shot. The two
+            # descriptions are pinned here, word for word, so pages.json
+            # alone cannot move what a search result shows about the app.
+            check(g.get("description") == PINNED_APP_DESCRIPTION,
+                  f"{rel}: SoftwareApplication description is not the pinned text: {g.get('description')!r}")
+            _addon = (g.get("offers") or {}).get("addOn") or {}
+            check(_addon.get("description") == PINNED_PREMIUM_DESCRIPTION,
+                  f"{rel}: Premium offer description is not the pinned text: {_addon.get('description')!r}")
             want_app = {
                 "@type": "SoftwareApplication",
                 "name": PINNED_NAME,
-                "description": LANDING.get("app_description"),
+                "description": PINNED_APP_DESCRIPTION,
                 "operatingSystem": "iOS, iPadOS",
                 "applicationCategory": "HealthApplication",
                 "url": PINNED_APP_STORE_URL,
@@ -946,18 +965,12 @@ for page, rel in HTML_PAGES:
                 "offers": {
                     "@type": "Offer", "price": "0", "priceCurrency": "USD",
                     "addOn": {"@type": "Offer", "name": PINNED_FACTS["tier"],
-                              "description": LANDING.get("premium_description"),
+                              "description": PINNED_PREMIUM_DESCRIPTION,
                               "price": PINNED_FACTS["price"].lstrip("$"), "priceCurrency": "USD"},
                 },
             }
             check(g == want_app, f"{rel}: SoftwareApplication differs from the pinned node: "
                   f"{sorted(k for k in set(g) | set(want_app) if g.get(k) != want_app.get(k))}")
-            for _key in ("app_description", "premium_description"):
-                check(isinstance(LANDING.get(_key), str) and 80 <= len(LANDING[_key]) <= 300,
-                      f"landing.{_key} must be a sentence or two, 80 to 300 characters")
-            check(f"{PINNED_FACTS['free_habit_limit']} habit" in (LANDING.get("premium_description") or "")
-                  and "one-time" in (LANDING.get("premium_description") or ""),
-                  "landing.premium_description must name the one-time purchase and the free habit limit it removes")
             for _asset in ("app-icon.png", "assets/shots/partners-2026-10-16-900.webp"):
                 check((ROOT / _asset).is_file(), f"{rel}: structured data names {_asset}, which is missing")
 
@@ -1058,6 +1071,165 @@ for banned_use in (r"\bcookie\b", r"\blocalStorage\b", r"\bindexedDB\b", r"\bloc
     check(re.search(banned_use, _measure_code) is None, f"measure.js: matches {banned_use!r}, which the module never uses")
 _measure_events = sorted(set(re.findall(r"send\('([^']+)'", _measure_code)))
 check(_measure_events == ["$pageview", "store_link_clicked"], f"measure.js: sends {_measure_events}, want only $pageview and store_link_clicked")
+
+# u2. measure.js is deployed with the pages, so its comments and strings are
+#     held to the copy rules too (banned phrases, no spaced hyphen; code such
+#     as a subtraction is not prose), and it must parse as a module. The
+#     parse uses node with the module type given, so it does not depend on a
+#     package.json; without node the gate cannot vouch for the file and fails.
+def js_prose(text: str) -> list[str]:
+    """The comments and string literals of a JavaScript file. Regular
+    expression literals are skipped, so a slash inside one is not read as
+    the start of a comment."""
+    out, i, n, last = [], 0, len(text), ""
+    while i < n:
+        c = text[i]
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(text[i + 2:j])
+            i = j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j
+            out.append(text[i + 2:j])
+            i = j + 2
+        elif c in "'\"`":
+            j, buf = i + 1, []
+            while j < n and text[j] != c:
+                if text[j] == "\\" and j + 1 < n:
+                    buf.append(text[j + 1])
+                    j += 2
+                    continue
+                buf.append(text[j])
+                j += 1
+            out.append("".join(buf))
+            i, last = j + 1, c
+        elif c == "/" and (last == "" or last in "(,=:[!&|?{};+-*%<>~^" or re.search(r"\b(?:return|typeof|case|in|of)$", text[:i].rstrip())):
+            j, in_class = i + 1, False
+            while j < n and (text[j] != "/" or in_class):
+                if text[j] == "\\":
+                    j += 1
+                elif text[j] == "[":
+                    in_class = True
+                elif text[j] == "]":
+                    in_class = False
+                j += 1
+            i, last = j + 1, "/"
+        else:
+            if not c.isspace():
+                last = c
+            i += 1
+    return out
+
+
+for _prose in js_prose(MEASURE_TEXT):
+    _flat = norm(re.sub(r"\s+", " ", _prose))
+    for phrase, rx in banned:
+        if rx.search(_flat):
+            failures.append(f"measure.js: banned phrase {phrase!r} in a comment or string: {_flat.strip()[:80]!r}")
+    if " - " in _flat:
+        failures.append(f"measure.js: spaced hyphen in a comment or string: {_flat.strip()[:80]!r}")
+try:
+    _parsed = subprocess.run(["node", "--input-type=module", "--check"], input=MEASURE_BYTES, capture_output=True)
+    check(_parsed.returncode == 0, f"measure.js: does not parse as a module: "
+          f"{(_parsed.stderr.decode('utf-8', 'replace').strip().splitlines() or [''])[-1]}")
+except OSError:
+    failures.append("measure.js: node is not available to check that it parses")
+
+# v. Nothing a reader comes for is hidden. On every generated page the h1,
+#    the article (the landing's main, a guide's or policy's article body)
+#    and, on the landing and the guides, the first App Store button sit in
+#    no element that is hidden, aria-hidden, inert or styled display: none
+#    or visibility: hidden, and in no template or noscript.
+def hidden_reason(node) -> "str | None":
+    for n in [node, *node.ancestors()]:
+        style = (n.attrs.get("style") or "").replace(" ", "").lower()
+        if "hidden" in n.attrs:
+            return f"<{n.tag}> has the hidden attribute"
+        if (n.attrs.get("aria-hidden") or "").lower() == "true":
+            return f"<{n.tag}> is aria-hidden"
+        if "inert" in n.attrs:
+            return f"<{n.tag}> is inert"
+        if "display:none" in style or "visibility:hidden" in style:
+            return f"<{n.tag}> is styled {style!r}"
+        if n.tag in {"template", "noscript"}:
+            return f"it sits in <{n.tag}>"
+    return None
+
+
+for page, rel in HTML_PAGES:
+    _root = parse(FRESH[rel])
+    _main = first(_root, lambda n: n.tag == "main")
+    _parts = [("h1", first(_root, lambda n: n.tag == "h1")),
+              ("article", first(_root, lambda n: "article-body" in n.classes) if page is not None else _main)]
+    if page_kind(page) != "policy":
+        _parts.append(("App Store button", first(_root, lambda n: n.tag == "a" and "store" in n.classes)))
+    for _name, _node in _parts:
+        if _node is None:
+            failures.append(f"{rel}: the {_name} is missing")
+            continue
+        _why = hidden_reason(_node)
+        check(_why is None, f"{rel}: the {_name} is hidden ({_why})")
+
+# w. Choosing which habits each partner follows is a Premium feature: the
+#    app shows Shared Habits only when PartnersPresentation.showsPushOptions
+#    holds, which is hasPro && isReachable (PartnerReachability.swift). So a
+#    sentence about choosing habits per partner says Premium in that same
+#    sentence (a later sentence of the paragraph is too late: "For each
+#    partner you decide which habits to share. With Premium, ..." reads as
+#    if the choice were free), and a guide table row about it says No or Not
+#    included under Free. On the comparison page a sentence naming the
+#    competitor describes the competitor and is exempt.
+SELECTION = re.compile(
+    r"\bshare all habits\b|\bwhich (?:of your )?habits (?:each|to share|they are part of|you (?:will )?share|you choose)\b"
+    r"|\b(?:choose|chooses|decide|decides|pick|picks) which habits\b|\b(?:pick|picks) the habits\b"
+    r"|\bhabits per (?:friend|partner)\b|\bhabits you choose\b|\bones you choose\b", re.I)
+for page, rel in HTML_PAGES:
+    if page_kind(page) == "policy" and rel != "support.html":
+        continue
+    _root = parse(FRESH[rel])
+    _comp = page.get("competitor") if page else None
+    _units = [(n.tag, n.text()) for n in _root.find_all(lambda n: n.tag in {"p", "li", "dt", "dd", "h1", "h2", "h3"})
+              if not any(a.tag in HIDDEN or a.tag == "table" for a in n.ancestors())]
+    _units += [("title", gen.page_title(page)), ("meta description", gen.page_description(page))]
+    for _where, _text in _units:
+        for _sentence in sentences(_text):
+            if not SELECTION.search(_sentence) or (_comp and whole(_comp).search(_sentence)):
+                continue
+            check(premium_word.search(_sentence) is not None,
+                  f"{rel}: habit selection is Premium only, but this {_where} sentence does not say Premium: {_sentence!r}")
+    for _table in by_tag(_root, "table"):
+        _head = table_head(_table)
+        for _tr in by_tag(first(_table, lambda n: n.tag == "tbody") or _table, "tr"):
+            _cells = [c.text() for c in row_cells(_tr)]
+            if not _cells or not SELECTION.search(_cells[0]):
+                continue
+            if _head == GUIDE_TABLE_HEAD:
+                check(len(_cells) > 1 and _cells[1].lower() in {"no", "not included"},
+                      f"{rel}: table row {_cells[0]!r} offers habit selection under Free")
+            else:
+                check(premium_word.search(" ".join(_cells)) is not None,
+                      f"{rel}: table row {_cells[0]!r} offers habit selection without saying Premium")
+
+# x. Milestones reached by calendar week hold only for a habit done every
+#    day: a streak counts only scheduled days (HabitHistory), so a habit on
+#    specific days or a weekly target reaches each milestone later. A page
+#    that sets a week ordinal beside a day milestone says both things.
+WEEK_MILESTONE = re.compile(
+    r"\bweek (?:one|two|three|four|five|[1-5])\b.*\b\d+ day milestones?\b|\b\d+ day milestones?\b.*\bweek (?:one|two|three|four|five|[1-5])\b",
+    re.I | re.S)
+DAILY_QUALIFIERS = ("for a habit you do every day", "only the scheduled days count")
+for page, rel in HTML_PAGES:
+    if page_kind(page) == "policy":
+        continue
+    _root = parse(FRESH[rel])
+    _main = first(_root, lambda n: n.tag == "main")
+    _plans = [n.text() for n in _root.find_all(lambda n: n.tag in {"p", "li", "dd"}) if WEEK_MILESTONE.search(n.text())]
+    if _plans:
+        _flat = norm(_main.text()).lower() if _main else ""
+        _missing = [q for q in DAILY_QUALIFIERS if q not in _flat]
+        check(not _missing, f"{rel}: a week by week milestone plan without the daily qualification {_missing}: {_plans[0]!r}")
 
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():
