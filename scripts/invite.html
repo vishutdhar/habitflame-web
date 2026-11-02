@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your HabitFlame invite.</title>
+    <meta name="description" content="You have been invited to be an accountability partner on HabitFlame. Download the app and enter your invite code to connect.">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-itunes-app" content="app-id=6756961710">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Be their accountability partner on HabitFlame">
+    <meta property="og:description" content="Someone wants to build better habits with you. Open to see your invite code and get started.">
+    <meta property="og:image" content="https://habitflame.vishutdhar.com/assets/og/invite.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="You have been invited to be an accountability partner on HabitFlame.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Be their accountability partner on HabitFlame">
+    <meta name="twitter:description" content="Someone wants to build better habits with you. Open to see your invite code.">
+    <meta name="twitter:image" content="https://habitflame.vishutdhar.com/assets/og/invite.png">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon-180.png">
+    <link rel="preload" href="/assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/styles.css?v=2026-10-16-app">
+    <script type="module" async src="/measure.js?v={{measure_version}}"></script>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+        <a href="/" class="brand"><img class="brand-icon" src="/assets/icons/icon-96.webp" width="28" height="28" alt="">HabitFlame</a>
+        <nav class="top-links" aria-label="Site">
+            <a href="/" class="nav-collapsible">Home</a>
+            <a href="/support">Support</a>
+        </nav>
+    </header>
+
+    <main id="main">
+        <!-- Valid invite view -->
+        <section class="invite" id="invite-view" hidden>
+            <div class="app-mark">
+                <img src="/assets/app-icon-168.png" alt="HabitFlame app icon" width="84" height="84">
+            </div>
+
+            <h1 id="invite-heading">You have been invited to be an accountability partner on HabitFlame.</h1>
+            <p class="lede">Two quick steps and you are connected.</p>
+
+            <div class="code-card">
+                <span class="code-label">Your invite code</span>
+                <div class="code-value" id="code-value"></div>
+                <button type="button" class="btn-ghost copy-btn" id="copy-btn">Copy code</button>
+            </div>
+
+            <div class="steps">
+                <div class="step">
+                    <div class="num">1</div>
+                    <div class="body">
+                        <div class="t">Download HabitFlame</div>
+                        <div class="d">Get HabitFlame from the App Store on your iPhone.</div>
+                        <a href="{{app_store_url}}" class="btn-app step-store" data-placement="invite_step">Download on the App Store</a>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="num">2</div>
+                    <div class="body">
+                        <div class="t">Enter your code</div>
+                        <div class="d">Open the app, go to <strong>Partners</strong>, tap <strong>Enter Code</strong>, and enter <code id="code-inline"></code>.</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="version-notice" id="version-notice" hidden>This invite needs HabitFlame 4.2 or later. Update the app from the App Store before opening the invite.</p>
+
+            <div class="actions">
+                <a href="habitflame://" class="btn-ghost" id="open-app-btn">Already have HabitFlame? Open the app</a>
+                <p class="open-hint">Then go to Partners, tap Enter Code, and paste your code.</p>
+            </div>
+
+            <p class="fine">Codes expire after seven days. If yours has expired, ask your partner to send a new invite.</p>
+        </section>
+
+        <!-- Graceful fallback when there is no valid code -->
+        <section class="fallback" id="fallback-view" hidden>
+            <div class="app-mark">
+                <img src="/assets/app-icon-168.png" alt="HabitFlame app icon" width="84" height="84">
+            </div>
+            <h1>This invite link looks incomplete.</h1>
+            <p>We could not read a valid invite code from this link. Download HabitFlame, then ask your partner to resend their invite, or enter their code under Partners in the app.</p>
+            <a href="{{app_store_url}}" class="btn-app" data-placement="invite_fallback">Download on the App Store</a>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="foot-row">
+            <nav class="foot-links" aria-label="Legal">
+                <a href="/">Home</a>
+                <a href="/privacy-policy">Privacy Policy</a>
+                <a href="/terms-of-service">Terms of Service</a>
+                <a href="/support">Support</a>
+                <a href="mailto:support@freedom-terminal.com">support@freedom-terminal.com</a>
+            </nav>
+            <a class="badge" href="{{app_store_url}}" data-placement="invite_footer"><img src="/assets/app-store-badge.svg" width="120" height="40" alt="Download on the App Store"></a>
+        </div>
+        <div class="foot-row foot-small">
+            <p class="copy brand-line"><a href="https://freedom-terminal.com/">A Freedom Terminal product</a></p>
+            <p class="copy">HabitFlame for iPhone and iPad. Copyright 2026.</p>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            "use strict";
+
+            // The unambiguous alphabet used by the app (no 0/O/1/I/L).
+            var ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+            var CODE_LEN = 6;
+
+            // Pull the last path segment, e.g. /invite/ABCD12 -> "ABCD12".
+            function readCodeFromPath() {
+                var parts = window.location.pathname.split("/").filter(function (p) {
+                    return p.length > 0;
+                });
+                if (parts.length === 0) {
+                    return "";
+                }
+                var last = parts[parts.length - 1];
+                // Ignore the page filename itself if opened directly.
+                if (last.toLowerCase() === "invite.html") {
+                    return "";
+                }
+                return last;
+            }
+
+            function normalizeCode(raw) {
+                try {
+                    raw = decodeURIComponent(raw);
+                } catch (e) {
+                    // Leave raw as-is if it is not valid percent-encoding.
+                }
+                return raw.trim().toUpperCase();
+            }
+
+            function isValidCode(code) {
+                if (code.length !== CODE_LEN) {
+                    return false;
+                }
+                for (var i = 0; i < code.length; i++) {
+                    if (ALPHABET.indexOf(code.charAt(i)) === -1) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // Inviter display name from ?n=, treated as untrusted: assigned via
+            // textContent only, never innerHTML.
+            function readInviterName() {
+                var params = new URLSearchParams(window.location.search);
+                var name = params.get("n");
+                if (!name) {
+                    return "";
+                }
+                name = name.trim();
+                if (name.length === 0) {
+                    return "";
+                }
+                // Guard against absurdly long values.
+                if (name.length > 60) {
+                    // Truncate by code points so a split surrogate pair can
+                    // never produce an unencodable lone surrogate.
+                    name = Array.from(name).slice(0, 60).join("");
+                }
+                return name;
+            }
+
+            function showFallback() {
+                document.getElementById("fallback-view").hidden = false;
+            }
+
+            function showInvite(code, inviterName) {
+                var view = document.getElementById("invite-view");
+
+                // Heading. textContent for the untrusted name.
+                var heading = document.getElementById("invite-heading");
+                if (inviterName) {
+                    var whoSpan = document.createElement("span");
+                    whoSpan.className = "who";
+                    whoSpan.textContent = inviterName;
+                    heading.textContent = "";
+                    heading.appendChild(whoSpan);
+                    heading.appendChild(
+                        document.createTextNode(
+                            " invited you to be their accountability partner on HabitFlame."
+                        )
+                    );
+                } else {
+                    heading.textContent =
+                        "You have been invited to be an accountability partner on HabitFlame.";
+                }
+
+                // Code display.
+                document.getElementById("code-value").textContent = code;
+                document.getElementById("code-inline").textContent = code;
+
+                // Deep link carries the code and, when present, the
+                // upgraded-invite marker and inviter hints, so an installed
+                // app can resolve the invite directly. Apps that predate
+                // scheme-link codes still show the manual-entry hint below.
+                var params = new URLSearchParams(window.location.search);
+                // Raw single-param reader: unlike URLSearchParams it does not
+                // form-decode "+" into a space, so literal pluses in names
+                // survive the round trip into the custom-scheme URL.
+                function readRawParam(key) {
+                    var pairs = window.location.search.replace(/^\?/, "").split("&");
+                    for (var i = 0; i < pairs.length; i++) {
+                        var eq = pairs[i].indexOf("=");
+                        if (eq > 0 && pairs[i].slice(0, eq) === key) {
+                            try {
+                                return decodeURIComponent(pairs[i].slice(eq + 1));
+                            } catch (e) {
+                                return "";
+                            }
+                        }
+                    }
+                    return "";
+                }
+                var deepLink = "habitflame://invite?code=" + encodeURIComponent(code);
+                if (params.get("v") === "2") {
+                    document.getElementById("version-notice").hidden = false;
+                    deepLink += "&v=2";
+                    var hintName = readRawParam("n").trim();
+                    if (hintName.length > 60) {
+                        hintName = Array.from(hintName).slice(0, 60).join("");
+                    }
+                    if (hintName) {
+                        deepLink += "&n=" + encodeURIComponent(hintName);
+                    }
+                    var uid = params.get("uid");
+                    if (uid && /^[0-9a-fA-F-]{1,64}$/.test(uid)) {
+                        deepLink += "&uid=" + encodeURIComponent(uid);
+                    }
+                }
+                document.getElementById("open-app-btn").setAttribute("href", deepLink);
+
+                // Copy button with a clipboard-API path and a fallback.
+                var copyBtn = document.getElementById("copy-btn");
+                var resetTimer = null;
+                copyBtn.addEventListener("click", function () {
+                    copyText(code, function (ok) {
+                        copyBtn.textContent = ok ? "Copied" : "Press and hold the code to copy";
+                        copyBtn.classList.toggle("copied", ok);
+                        if (resetTimer) {
+                            clearTimeout(resetTimer);
+                        }
+                        resetTimer = setTimeout(function () {
+                            copyBtn.textContent = "Copy code";
+                            copyBtn.classList.remove("copied");
+                        }, 2200);
+                    });
+                });
+
+                view.hidden = false;
+            }
+
+            function copyText(text, done) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(
+                        function () {
+                            done(true);
+                        },
+                        function () {
+                            done(legacyCopy(text));
+                        }
+                    );
+                    return;
+                }
+                done(legacyCopy(text));
+            }
+
+            function legacyCopy(text) {
+                try {
+                    var ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.setAttribute("readonly", "");
+                    ta.style.position = "absolute";
+                    ta.style.left = "-9999px";
+                    document.body.appendChild(ta);
+                    ta.select();
+                    var ok = document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    return ok;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            var code = normalizeCode(readCodeFromPath());
+            if (isValidCode(code)) {
+                showInvite(code, readInviterName());
+            } else {
+                showFallback();
+            }
+        })();
+    </script>
+</body>
+</html>

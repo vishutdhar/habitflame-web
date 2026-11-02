@@ -7,7 +7,8 @@ and exits 1 if there is any.
 Checks: committed output equals a fresh render, deployment facts, numbers and
 Premium claims agree with the facts in pages.json, banned and negated phrases,
 the competitor rule, links (resolved the way Vercel serves this site: clean
-URLs, no trailing slash), metadata, structured data references, word counts,
+URLs, no trailing slash), App Store links and their campaign tokens on every
+page, the invite page included, metadata, structured data references, word counts,
 prose hygiene, the sitemap, the policy pages, stale output, vercel.json, the
 app site association file and published assets.
 """
@@ -73,6 +74,53 @@ PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "f
                 # Constants.swift streakMilestones.
                 "streak_milestones": ["7", "14", "21", "30", "50", "75", "100", "150", "200", "365", "500", "1000"]}
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
+# The invite page links the short form of the same listing.
+PINNED_INVITE_STORE_URL = "https://apps.apple.com/app/id6756961710"
+# The App Store id of HabitFlame, which the Smart App Banner names.
+PINNED_APP_ID = "6756961710"
+# Every App Store link names its place on the page in data-placement, which
+# measure.js sends with each click. Funnel queries filter on these names, so
+# they are pinned per page, in page order; every guide has the same four.
+PINNED_PLACEMENTS = {
+    "index.html": ["home_nav", "home_hero", "home_cta", "home_footer"],
+    "support.html": ["support_nav", "support_footer"],
+    "privacy-policy.html": ["privacy_nav", "privacy_footer"],
+    "terms-of-service.html": ["terms_nav", "terms_footer"],
+    "invite.html": ["invite_step", "invite_fallback", "invite_footer"],
+}
+GUIDE_PLACEMENTS = ["guide_nav", "guide_head", "guide_cta", "guide_footer"]
+# The landing's structured data, shown in search results with no page around
+# it to qualify it, so every limit is in the sentence itself: a completion
+# reaches the partner only when made in the app for today (a widget
+# completion or a backfilled day sends no alert: HabitCompletionEffects and
+# WidgetIntents), and only with Premium. Pinned here so a change to
+# pages.json alone cannot move it.
+PINNED_APP_DESCRIPTION = (
+    "HabitFlame is a habit tracker for iPhone and iPad. Track habits your way, keep streaks alive and pair with an "
+    "accountability partner who can nudge you when you go quiet. With Premium, each shared habit you complete in the "
+    "app for today reaches your partner the moment you do it.")
+PINNED_PREMIUM_DESCRIPTION = (
+    "A one-time in-app purchase, not a subscription, that removes the 5 habit limit and adds habit stacking, smart "
+    "insights, real-time partner updates and unlimited partner nudges.")
+# Campaign tokens, one per page. App Analytics reports App Store page views
+# and downloads by these exact strings, so renaming one splits a page's
+# history in two: they are pinned here as well as set in pages.json. Apple
+# allows up to 30 characters.
+PINNED_CT = {
+    "index.html": "site-home",
+    "accountability-partner-habit-tracker.html": "site-guide-partner",
+    "streak-tracker-app.html": "site-guide-streak",
+    "pomodoro-habit-app.html": "site-guide-pomodoro",
+    "habit-app-for-couples.html": "site-guide-couples",
+    "daily-habit-tracker-with-reminders.html": "site-guide-reminders",
+    "habitflame-vs-habitshare.html": "site-guide-vs-habitshare",
+    "habit-tracker-with-friends.html": "site-guide-friends",
+    "new-year-habits-with-a-friend.html": "site-guide-new-year",
+    "support.html": "site-support",
+    "privacy-policy.html": "site-privacy",
+    "terms-of-service.html": "site-terms",
+    "invite.html": "site-invite",
+}
 PINNED_NAME = "HabitFlame"
 BRAND_URL = "https://freedom-terminal.com/"
 BRAND_TEXT = "A Freedom Terminal product"
@@ -251,6 +299,32 @@ check(SITE["contact_email"] == PINNED_CONTACT, f"site.contact_email is {SITE['co
 for key, value in PINNED_FACTS.items():
     check(FACTS.get(key) == value, f"facts.{key} is {FACTS.get(key)!r}, pinned {value!r} from the app")
 
+# The provider token is the account's number from App Store Connect, so it is
+# not pinned, only its form: digits, or empty until the owner has read it.
+# Empty means every App Store link is the bare listing URL; set means every
+# one carries pt, the page's pinned ct and mt=8, the form Apple's campaign
+# link generator writes.
+PROVIDER_TOKEN = (SITE.get("app_store_campaign") or {}).get("pt")
+check(isinstance(PROVIDER_TOKEN, str) and re.fullmatch(r"[0-9]{0,20}", PROVIDER_TOKEN) is not None,
+      f"site.app_store_campaign.pt is {PROVIDER_TOKEN!r}, want digits or an empty string")
+for _rel, _ct in PINNED_CT.items():
+    check(re.fullmatch(r"[a-z0-9-]{1,30}", _ct) is not None, f"pinned ct {_ct!r} for {_rel} is not 1 to 30 lowercase letters, digits or hyphens")
+check(len(set(PINNED_CT.values())) == len(PINNED_CT), "two pages share a pinned ct")
+_config_ct = {gen.page_file(p): (LANDING if p is None else p).get("ct") for p in [None, *PAGES, *POLICIES]}
+_config_ct["invite.html"] = (gen.CONFIG.get("invite") or {}).get("ct")
+check(_config_ct == PINNED_CT, f"pages.json campaign tokens differ from the pinned ones: "
+      f"{sorted(set(_config_ct.items()) ^ set(PINNED_CT.items()))}")
+check((gen.CONFIG.get("invite") or {}).get("app_store_url") == PINNED_INVITE_STORE_URL,
+      f"invite.app_store_url is not the pinned {PINNED_INVITE_STORE_URL}")
+
+
+def expected_store_link(rel: str) -> str:
+    """The one App Store href a page may carry."""
+    listing = PINNED_INVITE_STORE_URL if rel == "invite.html" else PINNED_APP_STORE_URL
+    if not PROVIDER_TOKEN:
+        return listing
+    return f"{listing}?pt={PROVIDER_TOKEN}&ct={PINNED_CT.get(rel, '')}&mt=8"
+
 # ---- 9. Minimum lists pages.json may extend but never shrink ----------------
 
 REQUIRED_BANNED = {
@@ -331,13 +405,13 @@ for rel, text in FRESH.items():
         continue
     check(path.read_bytes() == text.encode("utf-8"), f"{rel}: differs from a fresh render, run scripts/build-pages.py")
 
-# 8. Stale output. Every HTML file at the root is generated, except the
-#    invite page, which is hand written. A directory index would be served
-#    at /<dir>/ and redirected by trailingSlash, so none may exist.
-HAND_WRITTEN_HTML = {"invite.html"}
+# 8. Stale output. Every HTML file at the root is generated; the invite page
+#    is rendered from its hand written source, scripts/invite.html. A
+#    directory index would be served at /<dir>/ and redirected by
+#    trailingSlash, so none may exist.
 for f in sorted(ROOT.glob("*.html")):
-    if f.name not in FRESH and f.name not in HAND_WRITTEN_HTML:
-        failures.append(f"{f.name}: an HTML file that is neither generated nor the invite page (stale output?)")
+    if f.name not in FRESH:
+        failures.append(f"{f.name}: an HTML file the generator does not write (stale output?)")
 # Directories kept out of the deployment by .vercelignore (the generator's
 # sources, whose template and fragments would otherwise be served as pages).
 NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts", "docs"}
@@ -758,7 +832,7 @@ for page, rel in HTML_PAGES:
     want_store = 1 if kind == "policy" else 2
     check(raw.count(PINNED_APP_STORE_URL) >= want_store, f"{rel}: App Store URL appears {raw.count(PINNED_APP_STORE_URL)} times, want {want_store} or more")
     if kind != "policy":
-        store_buttons = root.find_all(lambda n: n.tag == "a" and "store" in n.classes and n.attrs.get("href") == PINNED_APP_STORE_URL)
+        store_buttons = root.find_all(lambda n: n.tag == "a" and "store" in n.classes and n.attrs.get("href") == expected_store_link(rel))
         check(len(store_buttons) >= 1, f"{rel}: no App Store button")
     brand = footer and first(footer, lambda n: n.tag == "a" and n.attrs.get("href") == BRAND_URL)
     check(bool(brand) and brand.text() == BRAND_TEXT, f"{rel}: footer lacks <a href=\"{BRAND_URL}\">{BRAND_TEXT}</a>")
@@ -803,12 +877,12 @@ for page, rel in HTML_PAGES:
     check(bool(meta(root, "property", "og:image:alt")), f"{rel}: og:image:alt is missing")
     check(meta(root, "name", "twitter:card") == "summary_large_image", f"{rel}: twitter:card is {meta(root, 'name', 'twitter:card')!r}")
     # One family, self hosted and preloaded. No stylesheet, font, script or
-    # connection hint for another host: no font service, analytics or widget.
+    # connection hint for another host: no font service, analytics SDK or
+    # widget. The one script file a page may load, this site's own
+    # measure.js, is pinned in u.
     preloads = [n.attrs.get("href") for n in root.walk() if n.tag == "link" and n.attrs.get("rel") == "preload"]
     check(preloads == [f"{PINNED_BASE_URL}/{PINNED_FONT}"], f"{rel}: font preloads are {preloads}")
     for n in root.walk():
-        if n.tag == "script" and n.attrs.get("src"):
-            failures.append(f"{rel}: script file {n.attrs['src']!r}; pages load no script files")
         if n.tag == "link" and n.attrs.get("rel") in {"stylesheet", "preload", "preconnect", "dns-prefetch", "modulepreload"} \
                 and not (n.attrs.get("href") or "").startswith(PINNED_BASE_URL + "/"):
             failures.append(f"{rel}: {n.attrs.get('rel')} link to another host: {n.attrs.get('href')!r}")
@@ -866,8 +940,39 @@ for page, rel in HTML_PAGES:
         if g.get("@type") == "SoftwareApplication":
             check(g.get("url") == PINNED_APP_STORE_URL, f"{rel}: SoftwareApplication url is not the pinned App Store URL")
             check("review" not in g and "aggregateRating" not in g, f"{rel}: SoftwareApplication carries ratings")
-            check(g.get("offers") == {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-                  f"{rel}: SoftwareApplication offer is {g.get('offers')}, want the free download")
+            # The app as it is sold: a free download, with Premium as an
+            # add-on offer at the one-time price (schema.org Offer.addOn,
+            # "an additional offer that can only be obtained in combination
+            # with the first base offer"). The icon is the app's own
+            # AppIcon.png, the screenshot the hero's Partners shot. The two
+            # descriptions are pinned here, word for word, so pages.json
+            # alone cannot move what a search result shows about the app.
+            check(g.get("description") == PINNED_APP_DESCRIPTION,
+                  f"{rel}: SoftwareApplication description is not the pinned text: {g.get('description')!r}")
+            _addon = (g.get("offers") or {}).get("addOn") or {}
+            check(_addon.get("description") == PINNED_PREMIUM_DESCRIPTION,
+                  f"{rel}: Premium offer description is not the pinned text: {_addon.get('description')!r}")
+            want_app = {
+                "@type": "SoftwareApplication",
+                "name": PINNED_NAME,
+                "description": PINNED_APP_DESCRIPTION,
+                "operatingSystem": "iOS, iPadOS",
+                "applicationCategory": "HealthApplication",
+                "url": PINNED_APP_STORE_URL,
+                "image": f"{PINNED_BASE_URL}/app-icon.png",
+                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-10-16-900.webp",
+                "publisher": {"@type": "Organization", "name": "Freedom Terminal", "url": BRAND_URL},
+                "offers": {
+                    "@type": "Offer", "price": "0", "priceCurrency": "USD",
+                    "addOn": {"@type": "Offer", "name": PINNED_FACTS["tier"],
+                              "description": PINNED_PREMIUM_DESCRIPTION,
+                              "price": PINNED_FACTS["price"].lstrip("$"), "priceCurrency": "USD"},
+                },
+            }
+            check(g == want_app, f"{rel}: SoftwareApplication differs from the pinned node: "
+                  f"{sorted(k for k in set(g) | set(want_app) if g.get(k) != want_app.get(k))}")
+            for _asset in ("app-icon.png", "assets/shots/partners-2026-10-16-900.webp"):
+                check((ROOT / _asset).is_file(), f"{rel}: structured data names {_asset}, which is missing")
 
     # g. Word counts.
     if kind == "policy":
@@ -881,6 +986,466 @@ for page, rel in HTML_PAGES:
         n_words = len(re.findall(r"\S*[A-Za-z0-9]\S*", art.text() if art else ""))
         word_counts.append((rel + " (article-body)", n_words))
         check(900 <= n_words <= 1500, f"{rel}: article body has {n_words} words, want 900 to 1500")
+
+# s. App Store links on every page the generator writes, the invite page
+#    included: every link to the store host is exactly the page's expected
+#    link (bare while the provider token is empty, carrying pt, the page's
+#    ct and mt=8 once it is set), and nothing else on the page names the
+#    store host except the landing's structured data, which names the listing
+#    itself and never a campaign.
+HTML_OUTPUTS = sorted(rel for rel in FRESH if rel.endswith(".html"))
+check(sorted(PINNED_CT) == HTML_OUTPUTS, f"pages without a pinned ct, or pinned pages that are not generated: "
+      f"{sorted(set(PINNED_CT) ^ set(HTML_OUTPUTS))}")
+for rel in HTML_OUTPUTS:
+    raw = FRESH[rel]
+    store_links = [n for n in parse(raw).walk()
+                   if any(urlsplit(n.attrs.get(a) or "").hostname == "apps.apple.com" for a in ("href", "src"))]
+    check(bool(store_links), f"{rel}: no App Store link")
+    want = expected_store_link(rel)
+    for n in store_links:
+        check(n.tag == "a" and n.attrs.get("href") == want and "src" not in n.attrs,
+              f"{rel}: App Store {n.tag} {n.attrs.get('href') or n.attrs.get('src')!r}, want <a href={want!r}>")
+    placements = [n.attrs.get("data-placement") for n in store_links]
+    want_placements = PINNED_PLACEMENTS.get(rel, GUIDE_PLACEMENTS)
+    check(placements == want_placements, f"{rel}: App Store link placements are {placements}, want {want_placements} in page order")
+    mentions = raw.count("apps.apple.com")
+    named = len(store_links) + (1 if rel == "index.html" else 0)
+    check(mentions == named, f"{rel}: the store host appears {mentions} times, but the page has {len(store_links)} App Store links"
+          f"{' and the structured data' if rel == 'index.html' else ''}")
+
+# t. Smart App Banner: every page, the invite page included, names the app
+#    once, so Safari on iPhone and iPad shows its own Get or Open banner. The
+#    banner carries no app-argument anywhere: the invite page is one static
+#    file served for every invite code (the /invite/:code rewrite), so a
+#    banner argument could never carry the code, and the page's own Open
+#    button already does.
+check(SITE.get("app_store_id") == PINNED_APP_ID, f"site.app_store_id is {SITE.get('app_store_id')!r}, pinned {PINNED_APP_ID!r}")
+for _listing in (PINNED_APP_STORE_URL, PINNED_INVITE_STORE_URL):
+    check(_listing.endswith(f"/id{PINNED_APP_ID}"), f"{_listing} is not the listing of app {PINNED_APP_ID}")
+for rel in HTML_OUTPUTS:
+    banners = [n for n in parse(FRESH[rel]).walk() if n.tag == "meta" and (n.attrs.get("name") or "").lower() == "apple-itunes-app"]
+    check([n.attrs.get("content") for n in banners] == [f"app-id={PINNED_APP_ID}"],
+          f"{rel}: Smart App Banner tags {[n.attrs.get('content') for n in banners]}, want exactly one 'app-id={PINNED_APP_ID}'")
+    check(all(any(a.tag == "head" for a in n.ancestors()) for n in banners), f"{rel}: the Smart App Banner tag is outside the head")
+
+# u. Measurement. Every page but the privacy policy loads this site's own
+#    measure.js, and nothing else by source: one async module in the head,
+#    versioned by the file's hash, absolute like every other asset on the
+#    generated pages and root relative on the invite page, like the rest of
+#    its assets. The privacy policy loads no script file and never names the
+#    module. The module itself posts only a page view and a store click to
+#    the shared project's capture endpoint, with the app's slug, and keeps no
+#    cookie and nothing in localStorage. Its behaviour is pinned by
+#    scripts/tests/measure.test.mjs.
+NOT_MEASURED = {"privacy-policy.html"}
+try:
+    MEASURE_BYTES = (ROOT / "measure.js").read_bytes()
+except OSError:
+    MEASURE_BYTES = b""
+    failures.append("measure.js: missing")
+MEASURE_TEXT = MEASURE_BYTES.decode("utf-8", errors="replace")
+MEASURE_VERSION = hashlib.sha256(MEASURE_BYTES).hexdigest()[:12]
+check(getattr(gen, "NOT_MEASURED", None) == NOT_MEASURED, f"generator NOT_MEASURED is {getattr(gen, 'NOT_MEASURED', None)}, want {NOT_MEASURED}")
+for rel in HTML_OUTPUTS:
+    raw = FRESH[rel]
+    sourced = [n for n in parse(raw).walk() if n.tag == "script" and "src" in n.attrs]
+    if rel in NOT_MEASURED:
+        check(sourced == [] and "measure.js" not in raw, f"{rel}: loads {[n.attrs.get('src') for n in sourced]}; this page is never measured")
+        continue
+    want_src = (f"/measure.js?v={MEASURE_VERSION}" if rel == "invite.html"
+                else f"{PINNED_BASE_URL}/measure.js?v={MEASURE_VERSION}")
+    check([n.attrs.get("src") for n in sourced] == [want_src], f"{rel}: script files {[n.attrs.get('src') for n in sourced]}, want only {want_src}")
+    for n in sourced:
+        check(n.attrs.get("type") == "module" and "async" in n.attrs and "defer" not in n.attrs and not n.text().strip(),
+              f"{rel}: the measure.js tag is not an empty async module script: {n.attrs}")
+        check(any(a.tag == "head" for a in n.ancestors()), f"{rel}: the measure.js tag is outside the head")
+    check(raw.count("measure.js") == 1, f"{rel}: names measure.js {raw.count('measure.js')} times, want the one tag")
+for must in ("export const ENDPOINT = 'https://us.i.posthog.com/i/v0/e/';",
+             "export const TOKEN = 'phc_J1tSpBnq3nRgP8VrUlkhQCoB0wIORi3m6EU2q2N537O';",
+             "app: 'habitflame',", "bundle_id: 'habitflame.vishutdhar.com',", "$process_person_profile: false,",
+             "nav?.globalPrivacyControl === true", "nav?.doNotTrack === '1'", "win.sessionStorage",
+             "path: reportedPath(location.pathname),", "$referrer: referrerAddress(page.referrer),"):
+    check(must in MEASURE_TEXT, f"measure.js: missing {must!r}")
+_measure_code = "\n".join(l for l in MEASURE_TEXT.splitlines() if not l.lstrip().startswith("//"))
+for banned_use in (r"\bcookie\b", r"\blocalStorage\b", r"\bindexedDB\b", r"\blocation\.(?:href|hash)\b", r"\bimport\b"):
+    check(re.search(banned_use, _measure_code) is None, f"measure.js: matches {banned_use!r}, which the module never uses")
+_measure_events = sorted(set(re.findall(r"send\('([^']+)'", _measure_code)))
+check(_measure_events == ["$pageview", "store_link_clicked"], f"measure.js: sends {_measure_events}, want only $pageview and store_link_clicked")
+
+# u2. measure.js is deployed with the pages, so its comments and strings are
+#     held to the copy rules too (banned phrases, no spaced hyphen), read the
+#     way JavaScript produces them: escapes are decoded, and a template
+#     literal's interpolations are code, not prose, so a subtraction inside
+#     one passes while any string literal inside one is still read. It must
+#     also parse as a module. The parse uses node with the module type given,
+#     so it does not depend on a package.json; without node the gate cannot
+#     vouch for the file and fails.
+JS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+# Escapes JavaScript rejects in a string or untagged template: a code point
+# past U+10FFFF, or a \u or \x without its hex digits. Reported as gate
+# failures, never raised.
+JS_BAD_ESCAPES: list[str] = []
+# Words after which a backtick opens an untagged template, not a tag's.
+JS_EXPRESSION_KEYWORDS = {"return", "typeof", "case", "in", "of", "yield", "await", "void", "delete", "new", "throw",
+                          "else", "do", "instanceof"}
+
+
+def js_literal(text: str, i: int, quote: str, decode: bool = True) -> "tuple[list[str], list[str], int]":
+    """Read a string or template literal whose opening quote is just before
+    index i: its prose pieces with escapes decoded, the source of its
+    interpolations, and the index after its closing quote. With decode off
+    (a tagged template, which JavaScript lets carry any escape) escapes are
+    stepped over unread."""
+    pieces, exprs, buf, n = [], [], [], len(text)
+    while i < n and text[i] != quote:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            esc_ch = text[i + 1]
+            if not decode:
+                i += 2
+                continue
+            if esc_ch == "u" and text.startswith("{", i + 2):
+                end = text.find("}", i + 3)
+                digits = text[i + 3:end] if end > 0 else ""
+                if re.fullmatch(r"[0-9a-fA-F]+", digits) and int(digits, 16) <= 0x10FFFF:
+                    buf.append(chr(int(digits, 16)))
+                    i = end + 1
+                    continue
+                JS_BAD_ESCAPES.append(text[i:end + 1] if end > 0 else text[i:i + 3])
+                i = end + 1 if end > 0 else i + 2
+                continue
+            if esc_ch == "u":
+                if re.fullmatch(r"[0-9a-fA-F]{4}", text[i + 2:i + 6]):
+                    buf.append(chr(int(text[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                JS_BAD_ESCAPES.append(text[i:i + 6])
+                i += 2
+                continue
+            if esc_ch == "x":
+                if re.fullmatch(r"[0-9a-fA-F]{2}", text[i + 2:i + 4]):
+                    buf.append(chr(int(text[i + 2:i + 4], 16)))
+                    i += 4
+                    continue
+                JS_BAD_ESCAPES.append(text[i:i + 4])
+                i += 2
+                continue
+            buf.append(JS_ESCAPES.get(esc_ch, esc_ch))
+            i += 2
+            continue
+        if quote == "`" and text.startswith("${", i):
+            pieces.append("".join(buf))
+            buf = []
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if text[j] in "'\"`":
+                    j = js_literal(text, j + 1, text[j], decode)[2]
+                    continue
+                depth += {"{": 1, "}": -1}.get(text[j], 0)
+                j += 1
+            exprs.append(text[i + 2:j - 1])
+            i = j
+            continue
+        buf.append(ch)
+        i += 1
+    pieces.append("".join(buf))
+    return pieces, exprs, i + 1
+
+
+def js_prose(text: str) -> list[str]:
+    """The comments and string literals of a JavaScript file, including those
+    inside template interpolations. A tagged template (String.raw`...`) is
+    code: its text is not prose, only its interpolations are read. Regular
+    expression literals are skipped, so a slash inside one is not read as
+    the start of a comment."""
+    out, i, n, last = [], 0, len(text), ""
+    while i < n:
+        c = text[i]
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(text[i + 2:j])
+            i = j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j
+            out.append(text[i + 2:j])
+            i = j + 2
+        elif c in "'\"`":
+            tag = re.search(r"([A-Za-z_$][\w$]*)\s*$", text[:i])
+            tagged = c == "`" and ((tag is not None and tag.group(1) not in JS_EXPRESSION_KEYWORDS) or last in ")]")
+            pieces, exprs, j = js_literal(text, i + 1, c, decode=not tagged)
+            if not tagged:
+                out.extend(pieces)
+            for expr in exprs:
+                out.extend(js_prose(expr))
+            i, last = j, c
+        elif c == "/" and (last == "" or last in "(,=:[!&|?{};+-*%<>~^" or re.search(r"\b(?:return|typeof|case|in|of)$", text[:i].rstrip())):
+            j, in_class = i + 1, False
+            while j < n and (text[j] != "/" or in_class):
+                if text[j] == "\\":
+                    j += 1
+                elif text[j] == "[":
+                    in_class = True
+                elif text[j] == "]":
+                    in_class = False
+                j += 1
+            i, last = j + 1, "/"
+        else:
+            if not c.isspace():
+                last = c
+            i += 1
+    return out
+
+
+_measure_prose = js_prose(MEASURE_TEXT)
+for _bad in JS_BAD_ESCAPES:
+    failures.append(f"measure.js: invalid escape {_bad!r} in a string literal")
+for _prose in _measure_prose:
+    _flat = norm(re.sub(r"\s+", " ", _prose))
+    for phrase, rx in banned:
+        if rx.search(_flat):
+            failures.append(f"measure.js: banned phrase {phrase!r} in a comment or string: {_flat.strip()[:80]!r}")
+    if " - " in _flat:
+        failures.append(f"measure.js: spaced hyphen in a comment or string: {_flat.strip()[:80]!r}")
+try:
+    _parsed = subprocess.run(["node", "--input-type=module", "--check"], input=MEASURE_BYTES, capture_output=True)
+    check(_parsed.returncode == 0, f"measure.js: does not parse as a module: "
+          f"{(_parsed.stderr.decode('utf-8', 'replace').strip().splitlines() or [''])[-1]}")
+except OSError:
+    failures.append("measure.js: node is not available to check that it parses")
+
+# Words that turn a sentence into a denial, shared by the copy rules below.
+NEGATION = re.compile(r"\b(?:not|cannot|never|no)\b|n't\b", re.I)
+
+
+def negated_before(sentence: str, start: int) -> bool:
+    """Whether one of the three words before a position negates it."""
+    words = re.findall(r"[\w']+", sentence[:start])[-3:]
+    return any(w.lower() in {"not", "never", "no", "cannot"} or w.lower().endswith("n't") for w in words)
+
+
+# v. Nothing a reader comes for is hidden. On every generated page the h1,
+#    the article (the landing's main, a guide's or policy's article body)
+#    and, on the landing and the guides, the first App Store button sit in
+#    no element that is hidden, aria-hidden, inert or styled display none or
+#    visibility hidden, and in no template or noscript; and nothing inside
+#    the article that hides that way wraps its text (a paragraph, list,
+#    heading, definition, table, quote or caption) or a store button. Inline
+#    styles are read as a browser reads them: whitespace anywhere,
+#    declarations in order, the last display and visibility values winning.
+TEXT_BLOCKS = {"p", "li", "ul", "ol", "dl", "dt", "dd", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote", "figcaption"}
+
+
+# CSS keywords a display or visibility value may be made of. Any other value
+# is read as not visible, so a typo cannot pass a hidden element as shown.
+DISPLAY_KEYWORDS = {"block", "inline", "run-in", "flow", "flow-root", "table", "flex", "grid", "ruby", "math",
+                    "list-item", "contents", "inline-block", "inline-table", "inline-flex", "inline-grid",
+                    "table-row-group", "table-header-group", "table-footer-group", "table-row", "table-cell",
+                    "table-column-group", "table-column", "table-caption", "ruby-base", "ruby-text",
+                    "ruby-base-container", "ruby-text-container"}
+CSS_WIDE_KEYWORDS = {"inherit", "initial", "unset", "revert", "revert-layer"}
+
+
+def css_hides(style: str) -> bool:
+    """Whether an inline style hides its element, read as a browser reads it:
+    whitespace collapsed, declarations in order, a later declaration winning
+    unless an earlier one for the same property is !important. display: none,
+    visibility: hidden or collapse, and any display or visibility value that
+    is not made of CSS keywords count as hiding."""
+    won: dict[str, tuple[str, bool]] = {}
+    for part in re.sub(r"\s+", " ", style.lower()).split(";"):
+        prop, sep, value = part.partition(":")
+        if not sep:
+            continue
+        prop = prop.strip()
+        important = re.search(r"!\s*important\s*$", value) is not None
+        value = re.sub(r"!\s*important\s*$", "", value).strip()
+        if prop in won and won[prop][1] and not important:
+            continue
+        won[prop] = (value, important)
+    display = won.get("display", ("", False))[0]
+    if display and display not in CSS_WIDE_KEYWORDS:
+        if display == "none" or not all(t in DISPLAY_KEYWORDS for t in display.split()):
+            return True
+    visibility = won.get("visibility", ("", False))[0]
+    if visibility and visibility not in CSS_WIDE_KEYWORDS | {"visible"}:
+        return True
+    return False
+
+
+def hidden_itself(n) -> "str | None":
+    if "hidden" in n.attrs:
+        return f"<{n.tag}> has the hidden attribute"
+    if (n.attrs.get("aria-hidden") or "").lower() == "true":
+        return f"<{n.tag}> is aria-hidden"
+    if "inert" in n.attrs:
+        return f"<{n.tag}> is inert"
+    if css_hides(n.attrs.get("style") or ""):
+        return f"<{n.tag}> is styled {n.attrs.get('style')!r}"
+    if n.tag in {"template", "noscript"}:
+        return f"it sits in <{n.tag}>"
+    return None
+
+
+def hidden_reason(node) -> "str | None":
+    for n in [node, *node.ancestors()]:
+        why = hidden_itself(n)
+        if why:
+            return why
+    return None
+
+
+def hidden_inside(node) -> "str | None":
+    """A hidden element inside node that wraps text or a store button."""
+    for d in node.walk():
+        if d is node:
+            continue
+        why = hidden_itself(d)
+        if why and any(x.tag in TEXT_BLOCKS or (x.tag == "a" and "store" in x.classes) for x in d.walk()):
+            return f"{why} inside it"
+    return None
+
+
+for page, rel in HTML_PAGES:
+    _root = parse(FRESH[rel])
+    _main = first(_root, lambda n: n.tag == "main")
+    _parts = [("h1", first(_root, lambda n: n.tag == "h1")),
+              ("article", first(_root, lambda n: "article-body" in n.classes) if page is not None else _main)]
+    if page_kind(page) != "policy":
+        _parts.append(("App Store button", first(_root, lambda n: n.tag == "a" and "store" in n.classes)))
+    for _name, _node in _parts:
+        if _node is None:
+            failures.append(f"{rel}: the {_name} is missing")
+            continue
+        _why = hidden_reason(_node) or (hidden_inside(_node) if _name == "article" else None)
+        check(_why is None, f"{rel}: the {_name} is hidden ({_why})")
+
+# w. Choosing which habits each partner follows is a Premium feature: the
+#    app shows Shared Habits only when PartnersPresentation.showsPushOptions
+#    holds, which is hasPro && isReachable (PartnerReachability.swift). So a
+#    sentence about choosing which habits a partner or friend gets says
+#    Premium in that same sentence, as a condition ("without Premium" is not
+#    one); a sentence saying the free version can choose fails unless it
+#    denies it; and a guide table row about the choice says No or Not
+#    included under Free. Choosing habits to build, with no word about
+#    sharing, partners, friends or following, is planning advice and passes.
+#    Every page is read, the policy pages included. On the comparison page a
+#    sentence about the competitor alone (it names the competitor and not
+#    HabitFlame) describes the competitor and is exempt.
+SELECTION = re.compile(
+    r"\bshare all habits\b|\bwhich (?:of your )?habits (?:each|to share|they are part of|you (?:will )?share|you choose)\b"
+    r"|\b(?:choose|chooses|decide|decides|pick|picks) which habits\b|\b(?:choose|chooses|pick|picks|select|selects) the habits\b"
+    r"|\bhabits to share\b|\bhabits per (?:friend|partner)\b|\bhabits you choose\b|\bones you choose\b", re.I)
+SHARING = re.compile(r"\bshar\w*|\bpartners?\b|\bfriends?\b|\bfollow\w*|\bpart of\b|\bhears? about\b|\bsent\b|\bsends?\b", re.I)
+PREMIUM_CONDITION = re.compile(r"(?<!without )\bPremium\b", re.I)
+FREE_CHOICE = re.compile(
+    r"\bfree\b(?:\s+[\w']+){0,4}?\s+(?:choose|chooses|pick|picks|decide|decides|select|selects)\b"
+    r"|\b(?:choose|chooses|pick|picks|decide|decides|select|selects)\b(?:\s+[\w']+){0,5}?\s+(?:for free|free of charge|on the free version|in the free version)\b",
+    re.I)
+for page, rel in HTML_PAGES:
+    _root = parse(FRESH[rel])
+    _comp = page.get("competitor") if page else None
+    _units = [(n.tag, n.text()) for n in _root.find_all(lambda n: n.tag in {"p", "li", "dt", "dd", "h1", "h2", "h3"})
+              if not any(a.tag in HIDDEN or a.tag == "table" for a in n.ancestors())]
+    _units += [("title", gen.page_title(page)), ("meta description", gen.page_description(page))]
+    for _where, _text in _units:
+        for _sentence in sentences(_text):
+            if not SELECTION.search(_sentence) or not SHARING.search(_sentence):
+                continue
+            if _comp and whole(_comp).search(_sentence) and not whole(PINNED_NAME).search(_sentence):
+                continue
+            if FREE_CHOICE.search(_sentence):
+                _ok = NEGATION.search(_sentence) is not None
+            else:
+                _ok = PREMIUM_CONDITION.search(_sentence) is not None
+            check(_ok, f"{rel}: habit selection is Premium only, but this {_where} sentence does not make it a Premium "
+                       f"feature: {_sentence!r}")
+    for _table in by_tag(_root, "table"):
+        _head = table_head(_table)
+        for _tr in by_tag(first(_table, lambda n: n.tag == "tbody") or _table, "tr"):
+            _cells = [c.text() for c in row_cells(_tr)]
+            if not _cells or not SELECTION.search(_cells[0]):
+                continue
+            if _head == GUIDE_TABLE_HEAD:
+                check(len(_cells) > 1 and _cells[1].lower() in {"no", "not included"},
+                      f"{rel}: table row {_cells[0]!r} offers habit selection under Free")
+            else:
+                check(PREMIUM_CONDITION.search(" ".join(_cells)) is not None,
+                      f"{rel}: table row {_cells[0]!r} offers habit selection without saying Premium")
+
+# y. A partner hears about a completion at once only when it is made in the
+#    app for today: a completion from a widget or for a past day sends no
+#    alert (HabitCompletionEffects runs the push only when !isBackfill, and
+#    WidgetIntents writes the entry with no partner effects). So any visible
+#    sentence, heading, table cell, title or description that says a
+#    completion reaches the partner at once, in any wording (the moment,
+#    instantly, an instant notification, as it happens, right away, live,
+#    immediately, in real time, real-time), says "in the app for today". A
+#    sentence that denies it ("does not instantly notify") says nothing at
+#    once and passes; Live Activity is the lock screen timer, not a claim.
+IMMEDIATE = re.compile(
+    r"\bthe moment\b|\binstantly\b|\binstant notifications?\b|\bas (?:it|they) happens?\b|\bright away\b"
+    r"|\blive\b(?!\s+activit)|\bimmediately\b|\bin real[- ]time\b|\breal[- ]time\b", re.I)
+COMPLETING = re.compile(r"\bcomplet(?:e|es|ed|ing|ion|ions)\b", re.I)
+for page, rel in HTML_PAGES:
+    _body = first(parse(FRESH[rel]), lambda n: n.tag == "body")
+    _texts = [t for t, _owner, _table in (visible_units(_body) if _body else [])]
+    _texts += [gen.page_title(page), gen.page_description(page)]
+    for _text in _texts:
+        for _sentence in sentences(_text):
+            if not COMPLETING.search(_sentence) or "in the app for today" in _sentence.lower():
+                continue
+            if any(not negated_before(_sentence, m.start()) for m in IMMEDIATE.finditer(_sentence)):
+                failures.append(f"{rel}: a completion reaches the partner at once without 'in the app for today': {_sentence!r}")
+
+# x. Milestones reached by calendar week hold only for a habit done every
+#    day: a streak counts only scheduled days (HabitHistory), so a habit on
+#    specific days reaches each milestone later. A page that sets a week,
+#    in any wording (week two, the second week, after two weeks, by week
+#    two), beside a day milestone carries a daily qualification ("for a
+#    habit you do every day", "assumes a daily habit", "scheduled days
+#    only" and their like); a sentence that denies the timing passes.
+WEEK_ORDINAL = (r"(?:\bweek (?:one|two|three|four|five|[1-5])\b|\b(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th) week\b"
+                r"|\bafter (?:a|one|two|three|four|five|[1-5]) weeks?\b|\bby week\b|\bwithin (?:a|one|two|three|four|five|[1-5]) weeks?\b)")
+DAY_MILESTONE = r"\b\d+ day milestones?\b"
+WEEK_MILESTONE = re.compile(f"{WEEK_ORDINAL}.*{DAY_MILESTONE}|{DAY_MILESTONE}.*{WEEK_ORDINAL}", re.I | re.S)
+DAILY_QUALIFIERS = re.compile(
+    r"\bfor a habit you do every day\b|\bassumes? a daily habit\b|\bfor a daily habit\b(?! or)"
+    r"|\bonly the scheduled days count\b|\bscheduled days only\b|\bcounts? only (?:the )?scheduled days\b", re.I)
+for page, rel in HTML_PAGES:
+    if page_kind(page) == "policy":
+        continue
+    _root = parse(FRESH[rel])
+    _main = first(_root, lambda n: n.tag == "main")
+    _plans = []
+    for _n in _root.find_all(lambda n: n.tag in {"p", "li", "dd"}):
+        _text = _n.text()
+        if not WEEK_MILESTONE.search(_text):
+            continue
+        _claims = [s for s in sentences(_text) if re.search(DAY_MILESTONE, s, re.I)]
+        if _claims and all(NEGATION.search(s) for s in _claims):
+            continue
+        _plans.append(_text)
+    if _plans:
+        _flat = norm(_main.text()) if _main else ""
+        check(DAILY_QUALIFIERS.search(_flat) is not None,
+              f"{rel}: a week by week milestone plan without the daily qualification: {_plans[0]!r}")
+
+# z. A weekly target's streak grows a week at a time, by that week's
+#    completions once its target is met (WeeklyStreakCalculator), and a
+#    milestone is celebrated only when the streak lands on it exactly
+#    (HabitCompletionEffects): three a week makes three, six, nine and never
+#    seven. A sentence about a weekly target and milestones says a milestone
+#    can be stepped past, never that the same milestones come later.
+STEPS_PAST = re.compile(r"\bwithout landing\b|\bstep\w* past\b|\bskip\w*\b|\bnever lands?\b|\bnot every milestone\b|\bnot celebrated\b", re.I)
+for page, rel in HTML_PAGES:
+    _body = first(parse(FRESH[rel]), lambda n: n.tag == "body")
+    for _text, _owner, _table in (visible_units(_body) if _body else []):
+        for _sentence in sentences(_text):
+            if re.search(r"\bweekly targets?\b", _sentence, re.I) and re.search(r"\bmilestones?\b", _sentence, re.I):
+                check(STEPS_PAST.search(_sentence) is not None,
+                      f"{rel}: a weekly target is promised milestones it can step past: {_sentence!r}")
 
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():
@@ -1038,12 +1603,17 @@ hygiene_files = {
     "scripts/build-pages.py": GEN_PATH.read_text(encoding="utf-8"),
     "scripts/verify-pages.py": pathlib.Path(__file__).read_text(encoding="utf-8"),
     "vercel.json": (ROOT / "vercel.json").read_text(encoding="utf-8"),
-    # The invite page and its stylesheet are hand written; the share card
-    # source and the design notes ship in the repository.
-    "invite.html": (ROOT / "invite.html").read_text(encoding="utf-8"),
+    # The invite page's source, its stylesheet and the measurement module are
+    # hand written; the share card source, the tests and the design notes
+    # ship in the repository.
+    "scripts/invite.html": (ROOT / "scripts" / "invite.html").read_text(encoding="utf-8"),
     "styles.css": (ROOT / "styles.css").read_text(encoding="utf-8"),
+    "measure.js": MEASURE_TEXT,
     "scripts/og.html": (ROOT / "scripts" / "og.html").read_text(encoding="utf-8"),
 }
+for _test in sorted((ROOT / "scripts" / "tests").glob("*")):
+    if _test.is_file() and _test.suffix in {".py", ".js", ".mjs"}:
+        hygiene_files[str(_test.relative_to(ROOT))] = _test.read_text(encoding="utf-8")
 for note in sorted((ROOT / "docs").rglob("*.md")):
     hygiene_files[str(note.relative_to(ROOT))] = note.read_text(encoding="utf-8")
 for frag in sorted((ROOT / "scripts" / "policies").glob("*.html")):
@@ -1089,6 +1659,8 @@ EXPECTED_URLS = [
     "https://habitflame.vishutdhar.com/habit-app-for-couples",
     "https://habitflame.vishutdhar.com/daily-habit-tracker-with-reminders",
     "https://habitflame.vishutdhar.com/habitflame-vs-habitshare",
+    "https://habitflame.vishutdhar.com/habit-tracker-with-friends",
+    "https://habitflame.vishutdhar.com/new-year-habits-with-a-friend",
     "https://habitflame.vishutdhar.com/support",
     "https://habitflame.vishutdhar.com/privacy-policy",
     "https://habitflame.vishutdhar.com/terms-of-service",
@@ -1234,6 +1806,18 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "These counters are not deleted",
              "your IP address, which reaches PostHog with each request; PostHog is set to discard it, and no location is derived from it"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
+# What measure.js sends, and what it never does, each checked against the
+# module and its tests when it was written.
+for must in ("This website is measured through PostHog", "Each click on an App Store link is counted with which link it was",
+             "an address is sent without its query or fragment",
+             "an invite page is sent as /invite, without the invite code or the name and identifier of the person who invited you",
+             "The website sets no cookies and stores nothing in your browser's local storage",
+             "a random value your browser keeps for the current tab and discards when the tab closes",
+             "If your browser sends Global Privacy Control or Do Not Track, the website sends nothing at all",
+             "This page is never measured"):
+    check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
+check(gen.POLICIES[1].get("deck") == "Last updated: November 2, 2026",
+      f"privacy-policy.html: deck is {gen.POLICIES[1].get('deck')!r}; the website section is new on November 2, 2026")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
 # domain policy (partner activity relayed on every plan, Health data never
@@ -1285,7 +1869,6 @@ RETIRED_POLICY_SENTENCES = (
     "estimate your approximate location",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
-retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
 for rel, text in retired_scan.items():
     flat = norm(re.sub(r"\s+", " ", htmlmod.unescape(text))).lower()
     for stale in RETIRED_POLICY_SENTENCES:
@@ -1328,6 +1911,19 @@ COUPLES_TEXT = norm(first(parse(FRESH["habit-app-for-couples.html"]), lambda n: 
 for must in ("With Family Sharing, one purchase also unlocks Premium for the people in your Apple family",
              "Family Sharing lets one purchase unlock Premium for both of you"):
     check(must in COUPLES_TEXT, f"habit-app-for-couples.html: missing {must!r}")
+# The landing's store note says what 4.6.0 changed on wide screens, in the
+# words of its release notes ("Partners and Settings sit in a comfortable
+# column on iPad and an unfolded iPhone Duo"): the readable column in
+# AccountabilityPartnersView.swift and SettingsView.swift. It is the only
+# Duo claim on the site, and the hero's store note shows it under the
+# store button.
+DUO_SENTENCE = "On iPad and an unfolded iPhone Duo, Partners and Settings sit in a comfortable column."
+_hero_notes = [n.text() for n in parse(FRESH["index.html"]).walk() if "store-note" in n.classes]
+check(_hero_notes == [f"On the App Store for iPhone and iPad. {DUO_SENTENCE}"],
+      f"index.html: the hero store note is {_hero_notes}, want the App Store line and the 4.6.0 Duo sentence")
+for rel in HTML_OUTPUTS:
+    if rel != "index.html":
+        check("Duo" not in FRESH[rel], f"{rel}: names the Duo; the landing's store note is the one place for it")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
                        "With Premium, iCloud sync keeps your habits in sync across all your iPhone and iPad devices.",
@@ -1396,15 +1992,19 @@ for rd in VERCEL.get("redirects", []) + [r for r in VERCEL.get("rewrites", []) i
     src = rd.get("source", "")
     check(not (src.startswith("/invite") or src.startswith("/.well-known") or src.startswith("/(") or src.startswith("/:")),
           f"vercel.json: {src!r} can capture the invite or association paths")
+# The rendered page, which check a holds byte equal to the committed file, and
+# its hand written source.
+INVITE = FRESH.get("invite.html", "")
 try:
-    INVITE = (ROOT / "invite.html").read_text(encoding="utf-8")
+    INVITE_SOURCE = (ROOT / "scripts" / "invite.html").read_text(encoding="utf-8")
 except OSError:
-    INVITE = ""
+    INVITE_SOURCE = ""
 # The invite page's own flow: it reads the code from the path and builds the
 # app deep link from it.
-# The invite page is hand written and outside the generator. Its bytes are
-# pinned so a change to its code parsing or deep link is a deliberate edit
-# here too; update the hash only after testing the invite flow on a device.
+# The invite page is hand written in scripts/invite.html; the generator only
+# fills in its App Store links. The source's bytes are pinned so a change to
+# its code parsing or deep link is a deliberate edit here too; update the
+# hash only after testing the invite flow on a device.
 # The association file and the invite page's stylesheet are pinned the same
 # way: Apple reads the components in order, so an added exclusion would stop
 # invite links opening the app while every presence check still passed.
@@ -1413,13 +2013,15 @@ STYLES_SHA256 = "0e8a6071735c647d326f9cc3a9744ab098b389698eed339afa15ee50247de63
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-# The invite flow lives in the page's one script element. Its bytes are pinned
-# on their own as well, so a change to the page's chrome (its palette, its
-# header) can move INVITE_SHA256 while this hash proves the flow is untouched.
+# The invite flow lives in the page's one inline script element. Its bytes
+# are pinned on their own as well, in the source and in the rendered page, so
+# a change to the page's chrome (its palette, its header) can move
+# INVITE_SOURCE_SHA256 while this hash proves the flow is untouched.
 INVITE_SCRIPT_SHA256 = "37e4a895749b5380dac55cdaa7cd7351cd4f74d6bfadb9771dbcd663332745c0"
-_invite_scripts = re.findall(r"<script>(.*?)</script>", INVITE, re.S)
-check(len(_invite_scripts) == 1 and hashlib.sha256(_invite_scripts[0].encode("utf-8")).hexdigest() == INVITE_SCRIPT_SHA256,
-      "invite.html: the invite script changed; test the invite flow on a device, then update INVITE_SCRIPT_SHA256")
+for _name, _text in (("scripts/invite.html", INVITE_SOURCE), ("invite.html", INVITE)):
+    _invite_scripts = re.findall(r"<script>(.*?)</script>", _text, re.S)
+    check(len(_invite_scripts) == 1 and hashlib.sha256(_invite_scripts[0].encode("utf-8")).hexdigest() == INVITE_SCRIPT_SHA256,
+          f"{_name}: the invite script changed; test the invite flow on a device, then update INVITE_SCRIPT_SHA256")
 # The invite page's stylesheet carries the same palette as site.css.
 try:
     _styles_root = re.search(r"(?m)^:root\s*\{([^}]*)\}", (ROOT / "styles.css").read_text(encoding="utf-8"))
@@ -1432,11 +2034,15 @@ except OSError:
     pass
 check(f'<meta name="theme-color" content="{PINNED_PALETTE["ground"]}">' in INVITE,
       f"invite.html: theme-color is not the ground {PINNED_PALETTE['ground']}")
-INVITE_SHA256 = "7e0611be2aefaf2c172b573ae9a2c09ea1beeb4fb94b7accd300c532228f55e8"
-check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
-for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
-               'href="https://apps.apple.com/app/id6756961710"'):
+INVITE_SOURCE_SHA256 = "cf18aa75b0d8ec26b1b2b8e9f856ffb59e605f5839e44deca3a8c2500f06e98d"
+check(hashlib.sha256(INVITE_SOURCE.encode("utf-8")).hexdigest() == INVITE_SOURCE_SHA256,
+      "scripts/invite.html: changed; test the invite flow, then update INVITE_SOURCE_SHA256")
+for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"'):
     check(marker in INVITE, f"invite.html: missing {marker!r}")
+# Its three App Store links (the download step, the fallback and the footer
+# badge) all come from the campaign config, checked with every page's in s.
+check(INVITE_SOURCE.count('href="{{app_store_url}}"') == 3 and "apps.apple.com" not in INVITE_SOURCE,
+      "scripts/invite.html: the App Store links are not the three {{app_store_url}} placeholders")
 for m in re.finditer(r'(?:href|src)="(/[^"#?]*)', INVITE):
     path_part = m.group(1).lstrip("/")
     target = ROOT / ("index.html" if path_part == "" else path_part)

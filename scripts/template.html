@@ -7,6 +7,7 @@
 <meta name="description" content="{{description}}">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#000000">
+<meta name="apple-itunes-app" content="app-id={{app_store_id}}">
 <link rel="canonical" href="{{url}}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="HabitFlame">
@@ -26,7 +27,7 @@
 <link rel="apple-touch-icon" href="{{base}}/assets/icons/apple-touch-icon-180.png">
 <link rel="preload" href="{{base}}/{{font}}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}/{{stylesheet}}?v={{css_version}}">
-<script type="application/ld+json">{{jsonld}}</script>
+<script type="application/ld+json">{{jsonld}}</script>{{measure}}
 </head>
 <body class="{{body_class}}">
 <a class="skip" href="#main">Skip to content</a>
@@ -35,7 +36,7 @@
   <nav class="top-links" aria-label="Site">
     <a class="top-guides" href="{{base}}/#guides">Guides</a>
     <a href="{{base}}/support">Support</a>
-    <a class="store-link" href="{{app_store_url}}">App Store</a>
+    <a class="store-link" href="{{app_store_url}}" data-placement="{{placement}}_nav">App Store</a>
   </nav>
 </header>
 <main id="main">
@@ -49,7 +50,7 @@
       <a href="{{base}}/terms-of-service">Terms of Service</a>
       <a href="mailto:{{contact_email}}">{{contact_email}}</a>
     </nav>
-    <a class="badge" href="{{app_store_url}}"><img src="{{base}}/assets/app-store-badge.svg" width="120" height="40" alt="Download on the App Store"></a>
+    <a class="badge" href="{{app_store_url}}" data-placement="{{placement}}_footer"><img src="{{base}}/assets/app-store-badge.svg" width="120" height="40" alt="Download on the App Store"></a>
   </div>
   <div class="foot-row foot-small">
     <p class="foot-brand"><a href="{{brand_url}}">{{brand_footer}}</a></p>
