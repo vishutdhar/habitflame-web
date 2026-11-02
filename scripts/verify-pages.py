@@ -925,8 +925,39 @@ for page, rel in HTML_PAGES:
         if g.get("@type") == "SoftwareApplication":
             check(g.get("url") == PINNED_APP_STORE_URL, f"{rel}: SoftwareApplication url is not the pinned App Store URL")
             check("review" not in g and "aggregateRating" not in g, f"{rel}: SoftwareApplication carries ratings")
-            check(g.get("offers") == {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-                  f"{rel}: SoftwareApplication offer is {g.get('offers')}, want the free download")
+            # The app as it is sold: a free download, with Premium as an
+            # add-on offer at the one-time price (schema.org Offer.addOn,
+            # "an additional offer that can only be obtained in combination
+            # with the first base offer"). The icon is the app's own
+            # AppIcon.png, the screenshot the hero's Partners shot. Only the
+            # two descriptions come from pages.json, and they must be there.
+            want_app = {
+                "@type": "SoftwareApplication",
+                "name": PINNED_NAME,
+                "description": LANDING.get("app_description"),
+                "operatingSystem": "iOS, iPadOS",
+                "applicationCategory": "HealthApplication",
+                "url": PINNED_APP_STORE_URL,
+                "image": f"{PINNED_BASE_URL}/app-icon.png",
+                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-10-16-900.webp",
+                "publisher": {"@type": "Organization", "name": "Freedom Terminal", "url": BRAND_URL},
+                "offers": {
+                    "@type": "Offer", "price": "0", "priceCurrency": "USD",
+                    "addOn": {"@type": "Offer", "name": PINNED_FACTS["tier"],
+                              "description": LANDING.get("premium_description"),
+                              "price": PINNED_FACTS["price"].lstrip("$"), "priceCurrency": "USD"},
+                },
+            }
+            check(g == want_app, f"{rel}: SoftwareApplication differs from the pinned node: "
+                  f"{sorted(k for k in set(g) | set(want_app) if g.get(k) != want_app.get(k))}")
+            for _key in ("app_description", "premium_description"):
+                check(isinstance(LANDING.get(_key), str) and 80 <= len(LANDING[_key]) <= 300,
+                      f"landing.{_key} must be a sentence or two, 80 to 300 characters")
+            check(f"{PINNED_FACTS['free_habit_limit']} habit" in (LANDING.get("premium_description") or "")
+                  and "one-time" in (LANDING.get("premium_description") or ""),
+                  "landing.premium_description must name the one-time purchase and the free habit limit it removes")
+            for _asset in ("app-icon.png", "assets/shots/partners-2026-10-16-900.webp"):
+                check((ROOT / _asset).is_file(), f"{rel}: structured data names {_asset}, which is missing")
 
     # g. Word counts.
     if kind == "policy":

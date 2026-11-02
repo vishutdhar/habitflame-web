@@ -7,6 +7,7 @@
     "contact_email": "support@freedom-terminal.com",
     "brand_url": "https://freedom-terminal.com/",
     "brand_footer": "A Freedom Terminal product",
+    "publisher": "Freedom Terminal",
     "app_store_campaign": {"pt": ""}
   },
   "facts": {
@@ -67,6 +68,8 @@
     "description": "HabitFlame is an iPhone habit tracker. Keep streaks alive and pair with a partner who nudges you and, with Premium, sees every shared win. Premium is paid once.",
     "lastmod": "2026-11-02",
     "ct": "site-home",
+    "app_description": "HabitFlame is a habit tracker for iPhone and iPad. Track habits your way, keep streaks alive and pair with an accountability partner who can nudge you when you go quiet. With Premium, each shared habit you complete reaches your partner the moment you do it.",
+    "premium_description": "A one-time in-app purchase, not a subscription, that removes the 5 habit limit and adds habit stacking, smart insights, real-time partner updates and unlimited partner nudges.",
     "headline": "Habits stick when someone is watching.",
     "lede": "Pair with one person. With Premium, each shared habit you complete in the app for today reaches their phone the moment you do it, and they can nudge you when you go quiet. Free for up to 5 habits. Premium is $9.99, paid once, no subscription.",
     "store_note": "On the App Store for iPhone and iPad. On iPad and an unfolded iPhone Duo, Partners and Settings sit in a comfortable column.",

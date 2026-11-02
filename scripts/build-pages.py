@@ -69,6 +69,8 @@ OG_IMAGE = "assets/og/site-2026-10-16-app.png"
 OG_IMAGE_ALT = ("HabitFlame: habits stick when someone is watching. The Partners tab, "
                 "with a flame from Jordan for your Morning Run.")
 POLICY_PAGES = [p["file"] for p in POLICIES]
+# The app's own 1024 pixel icon, byte for byte the AppIcon.png the app ships.
+APP_ICON = "app-icon.png"
 
 # App Store campaign links. App Analytics credits App Store page views and
 # downloads to a campaign when the link carries the developer account's
@@ -588,13 +590,24 @@ def jsonld(page: dict | None) -> str:
         "url": f"{BASE}/",
     }]
     if page is None:
+        # The app as it is sold: a free download, with Premium as an add-on
+        # offer at its one-time price. The url is the listing itself, never a
+        # campaign link. No rating: the site states none it cannot show.
         graph.append({
             "@type": "SoftwareApplication",
             "name": SITE["name"],
-            "operatingSystem": "iOS",
+            "description": LANDING["app_description"],
+            "operatingSystem": "iOS, iPadOS",
             "applicationCategory": "HealthApplication",
             "url": SITE["app_store_url"],
-            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+            "image": f"{BASE}/{APP_ICON}",
+            "screenshot": f"{BASE}/assets/shots/{LANDING['hero_shot']['stem']}-900.webp",
+            "publisher": {"@type": "Organization", "name": SITE["publisher"], "url": SITE["brand_url"]},
+            "offers": {
+                "@type": "Offer", "price": "0", "priceCurrency": "USD",
+                "addOn": {"@type": "Offer", "name": FACTS["tier"], "description": LANDING["premium_description"],
+                          "price": FACTS["price"].lstrip("$"), "priceCurrency": "USD"},
+            },
         })
     graph.append({
         "@type": "WebPage",
