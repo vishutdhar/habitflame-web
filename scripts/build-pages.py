@@ -627,6 +627,7 @@ def render(page: dict | None) -> str:
         "body_class": body_class,
         "main": main,
         "app_store_url": esc(store_url(page_ct(page))),
+        "app_store_id": esc(SITE["app_store_id"]),
         "contact_email": esc(SITE["contact_email"]),
         "brand_url": esc(SITE["brand_url"]),
         "brand_footer": esc(SITE["brand_footer"]),

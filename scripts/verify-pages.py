@@ -76,6 +76,8 @@ PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "f
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
 # The invite page links the short form of the same listing.
 PINNED_INVITE_STORE_URL = "https://apps.apple.com/app/id6756961710"
+# The App Store id of HabitFlame, which the Smart App Banner names.
+PINNED_APP_ID = "6756961710"
 # Campaign tokens, one per page. App Analytics reports App Store page views
 # and downloads by these exact strings, so renaming one splits a page's
 # history in two: they are pinned here as well as set in pages.json. Apple
@@ -951,6 +953,21 @@ for rel in HTML_OUTPUTS:
     check(mentions == named, f"{rel}: the store host appears {mentions} times, but the page has {len(store_links)} App Store links"
           f"{' and the structured data' if rel == 'index.html' else ''}")
 
+# t. Smart App Banner: every page, the invite page included, names the app
+#    once, so Safari on iPhone and iPad shows its own Get or Open banner. The
+#    banner carries no app-argument anywhere: the invite page is one static
+#    file served for every invite code (the /invite/:code rewrite), so a
+#    banner argument could never carry the code, and the page's own Open
+#    button already does.
+check(SITE.get("app_store_id") == PINNED_APP_ID, f"site.app_store_id is {SITE.get('app_store_id')!r}, pinned {PINNED_APP_ID!r}")
+for _listing in (PINNED_APP_STORE_URL, PINNED_INVITE_STORE_URL):
+    check(_listing.endswith(f"/id{PINNED_APP_ID}"), f"{_listing} is not the listing of app {PINNED_APP_ID}")
+for rel in HTML_OUTPUTS:
+    banners = [n for n in parse(FRESH[rel]).walk() if n.tag == "meta" and (n.attrs.get("name") or "").lower() == "apple-itunes-app"]
+    check([n.attrs.get("content") for n in banners] == [f"app-id={PINNED_APP_ID}"],
+          f"{rel}: Smart App Banner tags {[n.attrs.get('content') for n in banners]}, want exactly one 'app-id={PINNED_APP_ID}'")
+    check(all(any(a.tag == "head" for a in n.ancestors()) for n in banners), f"{rel}: the Smart App Banner tag is outside the head")
+
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():
     check(count > 0, f"facts.negated_forms has {form!r}, which no page uses (remove it)")
@@ -1509,7 +1526,7 @@ except OSError:
     pass
 check(f'<meta name="theme-color" content="{PINNED_PALETTE["ground"]}">' in INVITE,
       f"invite.html: theme-color is not the ground {PINNED_PALETTE['ground']}")
-INVITE_SOURCE_SHA256 = "80ef022885eca53f0245c9d84fde5ef4659f0145ce78c7263df91e26c22e7d9a"
+INVITE_SOURCE_SHA256 = "a0f9cab217e6fa214deadfd656f091af5ccd41c9a62e09291f37c1b421e7dcb2"
 check(hashlib.sha256(INVITE_SOURCE.encode("utf-8")).hexdigest() == INVITE_SOURCE_SHA256,
       "scripts/invite.html: changed; test the invite flow, then update INVITE_SOURCE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"'):
