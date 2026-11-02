@@ -35,6 +35,8 @@ EXPECTED_CT = {
     "habit-app-for-couples.html": "site-guide-couples",
     "daily-habit-tracker-with-reminders.html": "site-guide-reminders",
     "habitflame-vs-habitshare.html": "site-guide-vs-habitshare",
+    "habit-tracker-with-friends.html": "site-guide-friends",
+    "new-year-habits-with-a-friend.html": "site-guide-new-year",
     "support.html": "site-support",
     "privacy-policy.html": "site-privacy",
     "terms-of-service.html": "site-terms",
