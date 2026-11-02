@@ -5,7 +5,8 @@
     "app_store_url": "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710",
     "contact_email": "support@freedom-terminal.com",
     "brand_url": "https://freedom-terminal.com/",
-    "brand_footer": "A Freedom Terminal product"
+    "brand_footer": "A Freedom Terminal product",
+    "app_store_campaign": {"pt": ""}
   },
   "facts": {
     "price": "$9.99",
@@ -64,6 +65,7 @@
     "title": "HabitFlame: habit tracker with an accountability partner",
     "description": "HabitFlame is an iPhone habit tracker. Keep streaks alive and pair with a partner who nudges you and, with Premium, sees every shared win. Premium is paid once.",
     "lastmod": "2026-10-16",
+    "ct": "site-home",
     "headline": "Habits stick when someone is watching.",
     "lede": "Pair with one person. With Premium, each shared habit you complete in the app for today reaches their phone the moment you do it, and they can nudge you when you go quiet. Free for up to 5 habits. Premium is $9.99, paid once, no subscription.",
     "store_note": "On the App Store for iPhone and iPad.",
@@ -113,6 +115,7 @@
       "title": "HabitFlame support and common questions",
       "description": "Help with HabitFlame: pairing with a partner, invite codes, restoring a purchase, iCloud sync, Apple Health and exporting your data.",
       "lastmod": "2026-10-16",
+      "ct": "site-support",
       "h1": "Support",
       "deck": "Answers to the questions people ask most, and how to reach us.",
       "intro": ["Email [support@freedom-terminal.com](mailto:support@freedom-terminal.com) with any question about HabitFlame. We typically reply within 24 to 48 hours."],
@@ -134,6 +137,7 @@
       "title": "HabitFlame privacy policy",
       "description": "What the HabitFlame app stores on your device and in iCloud, what it sends to the pairing service and to analytics, and how to have your data removed.",
       "lastmod": "2026-10-16",
+      "ct": "site-privacy",
       "h1": "Privacy Policy",
       "deck": "Last updated: September 28, 2026",
       "fragment": "privacy-policy.html"
@@ -143,6 +147,7 @@
       "title": "HabitFlame terms of service",
       "description": "The terms of service for HabitFlame, the habit tracker for iPhone and iPad: using the app, accountability partners, in-app purchases and liability.",
       "lastmod": "2026-10-16",
+      "ct": "site-terms",
       "h1": "Terms of Service",
       "deck": "Last updated: July 19, 2026",
       "fragment": "terms-of-service.html"
@@ -154,6 +159,7 @@
       "title": "Habit tracker with an accountability partner",
       "description": "A habit tracker where a partner can nudge you, react and, with Premium, see each shared habit you complete. How HabitFlame's accountability partner works.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-partner",
       "h1": "A habit tracker with a real accountability partner",
       "deck": "Most habit apps track. HabitFlame adds the one thing that changes whether you show up: another person who, with Premium, can see whether you did.",
       "faq_heading": "Questions about accountability partners",
@@ -213,6 +219,7 @@
       "title": "Streak tracker app for iPhone",
       "description": "HabitFlame is a streak tracker for iPhone with milestone celebrations, a full year view and, with Premium, a partner who sees your streak grow.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-streak",
       "h1": "A streak tracker that makes the chain worth keeping",
       "deck": "A streak is the simplest motivator there is: a number that only goes up if you show up today. HabitFlame counts it for every habit, celebrates the milestones and, with Premium, lets someone else watch it grow.",
       "faq_heading": "Questions about streaks",
@@ -262,6 +269,7 @@
       "title": "Pomodoro habit app: focus timer and habit tracker",
       "description": "HabitFlame pairs a Pomodoro focus timer with a habit tracker on iPhone: 25 minute sessions, timed breaks and a Live Activity, then log the minutes.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-pomodoro",
       "h1": "A Pomodoro timer inside your habit tracker",
       "deck": "Some habits need a box of time, not a checkbox. HabitFlame keeps a Pomodoro timer one tap away on the Today tab, so reading, studying or deep work gets its 25 minutes, and you log the minutes on your habit when you are done.",
       "faq_heading": "Questions about the focus timer",
@@ -312,6 +320,7 @@
       "title": "Habit app for couples and partners",
       "description": "A habit app two people can use together. Pair with your partner in HabitFlame, share the habits you choose, react to each other's wins and nudge each other.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-couples",
       "h1": "A habit app for couples who want to keep each other honest",
       "deck": "Building a habit next to someone you live with is easier when the app knows about both of you. HabitFlame pairs two people and, with Premium, shows each what the other completed, while keeping everything else separate.",
       "faq_heading": "Questions about using HabitFlame as a couple",
@@ -368,6 +377,7 @@
       "title": "Daily habit tracker with reminders",
       "description": "A daily habit tracker for iPhone with a reminder time per habit, wording that changes, widgets and a partner who can nudge you when you go quiet.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-reminders",
       "h1": "A daily habit tracker with reminders that do not go stale",
       "deck": "The first reminder works. The fortieth identical one gets swiped away. HabitFlame gives every habit its own reminder time, varies the wording, and backs it up with widgets and a partner who can nudge you.",
       "faq_heading": "Questions about reminders and the daily view",
@@ -414,6 +424,7 @@
       "title": "HabitFlame vs HabitShare: habit tracking with a partner",
       "description": "HabitShare and HabitFlame both pair you with a friend for your habits. Where they differ: platforms, price, timer, widgets, nudges and recent updates.",
       "lastmod": "2026-10-16",
+      "ct": "site-guide-vs-habitshare",
       "h1": "HabitFlame vs HabitShare",
       "deck": "Both apps start from the same idea: a habit is easier to keep when a friend can see it. Here is where they differ, stated as plainly as we can, so you can pick the one that fits.",
       "faq_heading": "Questions about HabitFlame and HabitShare",
@@ -484,5 +495,6 @@
         ]}
       ]
     }
-  ]
+  ],
+  "invite": {"source": "invite.html", "app_store_url": "https://apps.apple.com/app/id6756961710", "ct": "site-invite"}
 }

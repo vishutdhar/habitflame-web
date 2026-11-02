@@ -10,6 +10,9 @@ Outputs (all at the repo root):
   <slug>.html                one guide page per entry in pages.json "pages"
   support.html, privacy-policy.html, terms-of-service.html
                              the policy pages, one per entry in "policies"
+  invite.html                the invite page, from the hand written
+                             scripts/invite.html with its App Store links
+                             filled in
   sitemap.xml                landing, guides and the three policy pages
   robots.txt
 
@@ -21,6 +24,15 @@ Rendering is deterministic: the same inputs give the same bytes. The only
 dates are the sitemap lastmod values, each page's "lastmod" in pages.json,
 so a rebuild on another day changes nothing. The stylesheet version in the
 page head is a hash of site.css, so it changes exactly when the file does.
+
+App Store links carry Apple's campaign parameters once the account's
+provider token is set in pages.json (site.app_store_campaign.pt); each page
+has its own campaign token, "ct". With the provider token empty every link is
+the bare listing URL, exactly as before campaigns existed.
+
+Checks, from the repository root:
+  python3 scripts/verify-pages.py                    the site gate
+  python3 -m unittest discover -s scripts/tests      the generator's tests
 """
 import datetime
 import hashlib
@@ -39,6 +51,8 @@ FACTS = CONFIG["facts"]
 LANDING = CONFIG["landing"]
 PAGES = CONFIG["pages"]
 POLICIES = CONFIG["policies"]
+INVITE = CONFIG["invite"]
+INVITE_FILE = "invite.html"
 
 BASE = SITE["base_url"].rstrip("/")
 YEAR = "2026"
@@ -50,6 +64,19 @@ OG_IMAGE = "assets/og/site-2026-10-16-app.png"
 OG_IMAGE_ALT = ("HabitFlame: habits stick when someone is watching. The Partners tab, "
                 "with a flame from Jordan for your Morning Run.")
 POLICY_PAGES = [p["file"] for p in POLICIES]
+
+# App Store campaign links. App Analytics credits App Store page views and
+# downloads to a campaign when the link carries the developer account's
+# provider token (pt) and a campaign token (ct), in the form the campaign
+# link generator in App Store Connect writes: pt, ct, then mt=8. Every page
+# has its own ct, so App Analytics can tell the pages apart. Apple allows a
+# ct of up to 30 characters; this site keeps to lowercase letters, digits
+# and hyphens. The provider token is the account's number, shown only in
+# App Store Connect (App Analytics, Campaigns); while it is empty, every
+# link stays the bare listing URL.
+CAMPAIGN = SITE["app_store_campaign"]
+PROVIDER_TOKEN = re.compile(r"[0-9]{1,20}")
+CAMPAIGN_TOKEN = re.compile(r"[a-z0-9-]{1,30}")
 
 STORE_BUTTON_TEXT = "Download on the App Store"
 STORE_NOTE = "Free to download for iPhone and iPad. Premium is a one-time $9.99 purchase."
@@ -254,21 +281,55 @@ def css_version() -> str:
     return hashlib.sha256((ROOT / STYLESHEET).read_bytes()).hexdigest()[:12]
 
 
+# ---- App Store links ---------------------------------------------------------
+
+def page_ct(page: dict | None) -> str:
+    """The page's campaign token, from its own entry in pages.json."""
+    return (LANDING if page is None else page)["ct"]
+
+
+def campaign_tokens() -> dict[str, str]:
+    """Every page's campaign token by output file, after checking the whole
+    campaign config: a provider token of digits or none at all, and one well
+    formed ct per page that no other page uses."""
+    pt = CAMPAIGN.get("pt")
+    if not isinstance(pt, str) or (pt and not PROVIDER_TOKEN.fullmatch(pt)):
+        raise ValueError(f"site.app_store_campaign.pt must be empty or digits, got {pt!r}")
+    tokens = {page_file(p): (LANDING if p is None else p).get("ct") for p in [None, *PAGES, *POLICIES]}
+    tokens[INVITE_FILE] = INVITE.get("ct")
+    for rel, ct in tokens.items():
+        if not isinstance(ct, str) or not CAMPAIGN_TOKEN.fullmatch(ct):
+            raise ValueError(f"{rel}: ct must be 1 to 30 lowercase letters, digits or hyphens, got {ct!r}")
+    repeated = sorted({ct for ct in tokens.values() if list(tokens.values()).count(ct) > 1})
+    if repeated:
+        raise ValueError(f"campaign tokens used by more than one page: {repeated}")
+    return tokens
+
+
+def store_url(ct: str, listing: str | None = None) -> str:
+    """An App Store link: the listing URL (the site's, unless another is
+    given), with the campaign parameters once a provider token is set."""
+    listing = SITE["app_store_url"] if listing is None else listing
+    if not CAMPAIGN["pt"]:
+        return listing
+    return f"{listing}?pt={CAMPAIGN['pt']}&ct={ct}&mt=8"
+
+
 # ---- Shared fragments --------------------------------------------------------
 
-def store_button() -> str:
-    return f'<a class="store" href="{esc(SITE["app_store_url"])}">{esc(STORE_BUTTON_TEXT)}</a>'
+def store_button(page: dict | None) -> str:
+    return f'<a class="store" href="{esc(store_url(page_ct(page)))}">{esc(STORE_BUTTON_TEXT)}</a>'
 
 
 def store_note() -> str:
     return f'<p class="store-note">{esc(STORE_NOTE)}</p>'
 
 
-def actions() -> str:
+def actions(page: dict | None) -> str:
     """The landing's two actions: the store button and the share button."""
     return (
         '<div class="actions">\n'
-        f"{store_button()}\n"
+        f"{store_button(page)}\n"
         f'<button type="button" class="share" data-share="{esc(SHARE_TEXT)}" hidden>{esc(SHARE_BUTTON_TEXT)}</button>\n'
         "</div>"
     )
@@ -302,12 +363,12 @@ def rows(items: list, tag: str = "ul", cls: str = "rows") -> str:
     return f'<{tag} class="{cls}">\n{lis}\n</{tag}>'
 
 
-def cta_section() -> str:
+def cta_section(page: dict | None) -> str:
     return (
         '<section class="cta">\n'
         f"<h2>{esc(CTA_HEADING)}</h2>\n"
         f"<p>{esc(CTA_TEXT)}</p>\n"
-        f"{store_button()}\n"
+        f"{store_button(page)}\n"
         "</section>"
     )
 
@@ -350,7 +411,7 @@ def landing_main() -> str:
         '<div class="hero-copy">\n'
         f"<h1>{esc(LANDING['headline'])}</h1>\n"
         f'<p class="lede">{esc(LANDING["lede"])}</p>\n'
-        f"{actions()}\n"
+        f"{actions(None)}\n"
         f'<p class="store-note">{esc(LANDING["store_note"])}</p>\n'
         "</div>\n"
         # One scene in three planes: the year grid, the phone, and the
@@ -392,7 +453,7 @@ def landing_main() -> str:
         '<section class="cta">\n'
         f"<h2>{esc(CTA_HEADING)}</h2>\n"
         f"<p>{esc(CTA_TEXT)}</p>\n"
-        f"{actions()}\n"
+        f"{actions(None)}\n"
         "</section>",
         SHARE_SCRIPT,
         MOTION_SCRIPT,
@@ -436,14 +497,14 @@ def article_main(page: dict) -> str:
         '<header class="article-head">\n'
         f"<h1>{esc(page['h1'])}</h1>\n"
         f'<p class="deck">{esc(page["deck"])}</p>\n'
-        f"{store_button()}\n"
+        f"{store_button(page)}\n"
         f"{store_note()}\n"
         "</header>\n"
         f'<div class="article-body">\n{blocks}\n</div>\n'
         '<section class="related">\n<h2>More guides</h2>\n'
         f"{guides_list(others)}\n"
         "</section>\n"
-        f"{cta_section()}\n"
+        f"{cta_section(page)}\n"
         "</div>"
     )
 
@@ -536,12 +597,12 @@ def jsonld(page: dict | None) -> str:
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
 
-def fill(values: dict[str, str]) -> str:
+def fill(values: dict[str, str], template: str = TEMPLATE) -> str:
     """Single pass substitution, so content can never be re-read as a placeholder."""
-    missing = set(_PLACEHOLDER.findall(TEMPLATE)) - set(values)
+    missing = set(_PLACEHOLDER.findall(template)) - set(values)
     if missing:
         raise KeyError(f"template placeholders without a value: {sorted(missing)}")
-    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], TEMPLATE)
+    return _PLACEHOLDER.sub(lambda m: values[m.group(1)], template)
 
 
 def render(page: dict | None) -> str:
@@ -565,12 +626,20 @@ def render(page: dict | None) -> str:
         "jsonld": jsonld(page),
         "body_class": body_class,
         "main": main,
-        "app_store_url": esc(SITE["app_store_url"]),
+        "app_store_url": esc(store_url(page_ct(page))),
         "contact_email": esc(SITE["contact_email"]),
         "brand_url": esc(SITE["brand_url"]),
         "brand_footer": esc(SITE["brand_footer"]),
         "year": YEAR,
     })
+
+
+def render_invite() -> str:
+    """The invite page: the hand written scripts/invite.html with its App
+    Store links filled in. Its code parsing and deep link are its own script,
+    which the generator never touches."""
+    source = (SCRIPTS / INVITE["source"]).read_text(encoding="utf-8")
+    return fill({"app_store_url": esc(store_url(INVITE["ct"], INVITE["app_store_url"]))}, source)
 
 
 def sitemap_urls() -> list[str]:
@@ -606,7 +675,9 @@ def render_robots() -> str:
 
 def outputs() -> dict[str, str]:
     """Every generated file, keyed by its path relative to the repo root."""
+    campaign_tokens()  # a malformed campaign config stops the build here
     files = {page_file(p): render(p) for p in [None, *PAGES, *POLICIES]}
+    files[INVITE_FILE] = render_invite()
     files["sitemap.xml"] = render_sitemap()
     files["robots.txt"] = render_robots()
     return files

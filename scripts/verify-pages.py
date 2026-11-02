@@ -7,7 +7,8 @@ and exits 1 if there is any.
 Checks: committed output equals a fresh render, deployment facts, numbers and
 Premium claims agree with the facts in pages.json, banned and negated phrases,
 the competitor rule, links (resolved the way Vercel serves this site: clean
-URLs, no trailing slash), metadata, structured data references, word counts,
+URLs, no trailing slash), App Store links and their campaign tokens on every
+page, the invite page included, metadata, structured data references, word counts,
 prose hygiene, the sitemap, the policy pages, stale output, vercel.json, the
 app site association file and published assets.
 """
@@ -73,6 +74,25 @@ PINNED_FACTS = {"price": "$9.99", "tier": "Premium", "free_habit_limit": "5", "f
                 # Constants.swift streakMilestones.
                 "streak_milestones": ["7", "14", "21", "30", "50", "75", "100", "150", "200", "365", "500", "1000"]}
 PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker/id6756961710"
+# The invite page links the short form of the same listing.
+PINNED_INVITE_STORE_URL = "https://apps.apple.com/app/id6756961710"
+# Campaign tokens, one per page. App Analytics reports App Store page views
+# and downloads by these exact strings, so renaming one splits a page's
+# history in two: they are pinned here as well as set in pages.json. Apple
+# allows up to 30 characters.
+PINNED_CT = {
+    "index.html": "site-home",
+    "accountability-partner-habit-tracker.html": "site-guide-partner",
+    "streak-tracker-app.html": "site-guide-streak",
+    "pomodoro-habit-app.html": "site-guide-pomodoro",
+    "habit-app-for-couples.html": "site-guide-couples",
+    "daily-habit-tracker-with-reminders.html": "site-guide-reminders",
+    "habitflame-vs-habitshare.html": "site-guide-vs-habitshare",
+    "support.html": "site-support",
+    "privacy-policy.html": "site-privacy",
+    "terms-of-service.html": "site-terms",
+    "invite.html": "site-invite",
+}
 PINNED_NAME = "HabitFlame"
 BRAND_URL = "https://freedom-terminal.com/"
 BRAND_TEXT = "A Freedom Terminal product"
@@ -251,6 +271,32 @@ check(SITE["contact_email"] == PINNED_CONTACT, f"site.contact_email is {SITE['co
 for key, value in PINNED_FACTS.items():
     check(FACTS.get(key) == value, f"facts.{key} is {FACTS.get(key)!r}, pinned {value!r} from the app")
 
+# The provider token is the account's number from App Store Connect, so it is
+# not pinned, only its form: digits, or empty until the owner has read it.
+# Empty means every App Store link is the bare listing URL; set means every
+# one carries pt, the page's pinned ct and mt=8, the form Apple's campaign
+# link generator writes.
+PROVIDER_TOKEN = (SITE.get("app_store_campaign") or {}).get("pt")
+check(isinstance(PROVIDER_TOKEN, str) and re.fullmatch(r"[0-9]{0,20}", PROVIDER_TOKEN) is not None,
+      f"site.app_store_campaign.pt is {PROVIDER_TOKEN!r}, want digits or an empty string")
+for _rel, _ct in PINNED_CT.items():
+    check(re.fullmatch(r"[a-z0-9-]{1,30}", _ct) is not None, f"pinned ct {_ct!r} for {_rel} is not 1 to 30 lowercase letters, digits or hyphens")
+check(len(set(PINNED_CT.values())) == len(PINNED_CT), "two pages share a pinned ct")
+_config_ct = {gen.page_file(p): (LANDING if p is None else p).get("ct") for p in [None, *PAGES, *POLICIES]}
+_config_ct["invite.html"] = (gen.CONFIG.get("invite") or {}).get("ct")
+check(_config_ct == PINNED_CT, f"pages.json campaign tokens differ from the pinned ones: "
+      f"{sorted(set(_config_ct.items()) ^ set(PINNED_CT.items()))}")
+check((gen.CONFIG.get("invite") or {}).get("app_store_url") == PINNED_INVITE_STORE_URL,
+      f"invite.app_store_url is not the pinned {PINNED_INVITE_STORE_URL}")
+
+
+def expected_store_link(rel: str) -> str:
+    """The one App Store href a page may carry."""
+    listing = PINNED_INVITE_STORE_URL if rel == "invite.html" else PINNED_APP_STORE_URL
+    if not PROVIDER_TOKEN:
+        return listing
+    return f"{listing}?pt={PROVIDER_TOKEN}&ct={PINNED_CT.get(rel, '')}&mt=8"
+
 # ---- 9. Minimum lists pages.json may extend but never shrink ----------------
 
 REQUIRED_BANNED = {
@@ -331,13 +377,13 @@ for rel, text in FRESH.items():
         continue
     check(path.read_bytes() == text.encode("utf-8"), f"{rel}: differs from a fresh render, run scripts/build-pages.py")
 
-# 8. Stale output. Every HTML file at the root is generated, except the
-#    invite page, which is hand written. A directory index would be served
-#    at /<dir>/ and redirected by trailingSlash, so none may exist.
-HAND_WRITTEN_HTML = {"invite.html"}
+# 8. Stale output. Every HTML file at the root is generated; the invite page
+#    is rendered from its hand written source, scripts/invite.html. A
+#    directory index would be served at /<dir>/ and redirected by
+#    trailingSlash, so none may exist.
 for f in sorted(ROOT.glob("*.html")):
-    if f.name not in FRESH and f.name not in HAND_WRITTEN_HTML:
-        failures.append(f"{f.name}: an HTML file that is neither generated nor the invite page (stale output?)")
+    if f.name not in FRESH:
+        failures.append(f"{f.name}: an HTML file the generator does not write (stale output?)")
 # Directories kept out of the deployment by .vercelignore (the generator's
 # sources, whose template and fragments would otherwise be served as pages).
 NOT_DEPLOYED = {".git", ".vercel", "node_modules", "scripts", "docs"}
@@ -758,7 +804,7 @@ for page, rel in HTML_PAGES:
     want_store = 1 if kind == "policy" else 2
     check(raw.count(PINNED_APP_STORE_URL) >= want_store, f"{rel}: App Store URL appears {raw.count(PINNED_APP_STORE_URL)} times, want {want_store} or more")
     if kind != "policy":
-        store_buttons = root.find_all(lambda n: n.tag == "a" and "store" in n.classes and n.attrs.get("href") == PINNED_APP_STORE_URL)
+        store_buttons = root.find_all(lambda n: n.tag == "a" and "store" in n.classes and n.attrs.get("href") == expected_store_link(rel))
         check(len(store_buttons) >= 1, f"{rel}: no App Store button")
     brand = footer and first(footer, lambda n: n.tag == "a" and n.attrs.get("href") == BRAND_URL)
     check(bool(brand) and brand.text() == BRAND_TEXT, f"{rel}: footer lacks <a href=\"{BRAND_URL}\">{BRAND_TEXT}</a>")
@@ -881,6 +927,29 @@ for page, rel in HTML_PAGES:
         n_words = len(re.findall(r"\S*[A-Za-z0-9]\S*", art.text() if art else ""))
         word_counts.append((rel + " (article-body)", n_words))
         check(900 <= n_words <= 1500, f"{rel}: article body has {n_words} words, want 900 to 1500")
+
+# s. App Store links on every page the generator writes, the invite page
+#    included: every link to the store host is exactly the page's expected
+#    link (bare while the provider token is empty, carrying pt, the page's
+#    ct and mt=8 once it is set), and nothing else on the page names the
+#    store host except the landing's structured data, which names the listing
+#    itself and never a campaign.
+HTML_OUTPUTS = sorted(rel for rel in FRESH if rel.endswith(".html"))
+check(sorted(PINNED_CT) == HTML_OUTPUTS, f"pages without a pinned ct, or pinned pages that are not generated: "
+      f"{sorted(set(PINNED_CT) ^ set(HTML_OUTPUTS))}")
+for rel in HTML_OUTPUTS:
+    raw = FRESH[rel]
+    store_links = [n for n in parse(raw).walk()
+                   if any(urlsplit(n.attrs.get(a) or "").hostname == "apps.apple.com" for a in ("href", "src"))]
+    check(bool(store_links), f"{rel}: no App Store link")
+    want = expected_store_link(rel)
+    for n in store_links:
+        check(n.tag == "a" and n.attrs.get("href") == want and "src" not in n.attrs,
+              f"{rel}: App Store {n.tag} {n.attrs.get('href') or n.attrs.get('src')!r}, want <a href={want!r}>")
+    mentions = raw.count("apps.apple.com")
+    named = len(store_links) + (1 if rel == "index.html" else 0)
+    check(mentions == named, f"{rel}: the store host appears {mentions} times, but the page has {len(store_links)} App Store links"
+          f"{' and the structured data' if rel == 'index.html' else ''}")
 
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():
@@ -1038,12 +1107,15 @@ hygiene_files = {
     "scripts/build-pages.py": GEN_PATH.read_text(encoding="utf-8"),
     "scripts/verify-pages.py": pathlib.Path(__file__).read_text(encoding="utf-8"),
     "vercel.json": (ROOT / "vercel.json").read_text(encoding="utf-8"),
-    # The invite page and its stylesheet are hand written; the share card
-    # source and the design notes ship in the repository.
-    "invite.html": (ROOT / "invite.html").read_text(encoding="utf-8"),
+    # The invite page's source and its stylesheet are hand written; the share
+    # card source, the tests and the design notes ship in the repository.
+    "scripts/invite.html": (ROOT / "scripts" / "invite.html").read_text(encoding="utf-8"),
     "styles.css": (ROOT / "styles.css").read_text(encoding="utf-8"),
     "scripts/og.html": (ROOT / "scripts" / "og.html").read_text(encoding="utf-8"),
 }
+for _test in sorted((ROOT / "scripts" / "tests").glob("*")):
+    if _test.is_file() and _test.suffix in {".py", ".js", ".mjs"}:
+        hygiene_files[str(_test.relative_to(ROOT))] = _test.read_text(encoding="utf-8")
 for note in sorted((ROOT / "docs").rglob("*.md")):
     hygiene_files[str(note.relative_to(ROOT))] = note.read_text(encoding="utf-8")
 for frag in sorted((ROOT / "scripts" / "policies").glob("*.html")):
@@ -1285,7 +1357,6 @@ RETIRED_POLICY_SENTENCES = (
     "estimate your approximate location",
 )
 retired_scan = {rel: text for rel, text in FRESH.items() if rel.endswith(".html")}
-retired_scan.update({name: (ROOT / name).read_text(encoding="utf-8") for name in sorted(HAND_WRITTEN_HTML)})
 for rel, text in retired_scan.items():
     flat = norm(re.sub(r"\s+", " ", htmlmod.unescape(text))).lower()
     for stale in RETIRED_POLICY_SENTENCES:
@@ -1396,15 +1467,19 @@ for rd in VERCEL.get("redirects", []) + [r for r in VERCEL.get("rewrites", []) i
     src = rd.get("source", "")
     check(not (src.startswith("/invite") or src.startswith("/.well-known") or src.startswith("/(") or src.startswith("/:")),
           f"vercel.json: {src!r} can capture the invite or association paths")
+# The rendered page, which check a holds byte equal to the committed file, and
+# its hand written source.
+INVITE = FRESH.get("invite.html", "")
 try:
-    INVITE = (ROOT / "invite.html").read_text(encoding="utf-8")
+    INVITE_SOURCE = (ROOT / "scripts" / "invite.html").read_text(encoding="utf-8")
 except OSError:
-    INVITE = ""
+    INVITE_SOURCE = ""
 # The invite page's own flow: it reads the code from the path and builds the
 # app deep link from it.
-# The invite page is hand written and outside the generator. Its bytes are
-# pinned so a change to its code parsing or deep link is a deliberate edit
-# here too; update the hash only after testing the invite flow on a device.
+# The invite page is hand written in scripts/invite.html; the generator only
+# fills in its App Store links. The source's bytes are pinned so a change to
+# its code parsing or deep link is a deliberate edit here too; update the
+# hash only after testing the invite flow on a device.
 # The association file and the invite page's stylesheet are pinned the same
 # way: Apple reads the components in order, so an added exclusion would stop
 # invite links opening the app while every presence check still passed.
@@ -1413,13 +1488,15 @@ STYLES_SHA256 = "0e8a6071735c647d326f9cc3a9744ab098b389698eed339afa15ee50247de63
 for name, want in ((".well-known/apple-app-site-association", AASA_SHA256), ("styles.css", STYLES_SHA256)):
     here = ROOT / name
     check(here.is_file() and hashlib.sha256(here.read_bytes()).hexdigest() == want, f"{name}: changed; test the invite flow, then update its pinned hash")
-# The invite flow lives in the page's one script element. Its bytes are pinned
-# on their own as well, so a change to the page's chrome (its palette, its
-# header) can move INVITE_SHA256 while this hash proves the flow is untouched.
+# The invite flow lives in the page's one inline script element. Its bytes
+# are pinned on their own as well, in the source and in the rendered page, so
+# a change to the page's chrome (its palette, its header) can move
+# INVITE_SOURCE_SHA256 while this hash proves the flow is untouched.
 INVITE_SCRIPT_SHA256 = "37e4a895749b5380dac55cdaa7cd7351cd4f74d6bfadb9771dbcd663332745c0"
-_invite_scripts = re.findall(r"<script>(.*?)</script>", INVITE, re.S)
-check(len(_invite_scripts) == 1 and hashlib.sha256(_invite_scripts[0].encode("utf-8")).hexdigest() == INVITE_SCRIPT_SHA256,
-      "invite.html: the invite script changed; test the invite flow on a device, then update INVITE_SCRIPT_SHA256")
+for _name, _text in (("scripts/invite.html", INVITE_SOURCE), ("invite.html", INVITE)):
+    _invite_scripts = re.findall(r"<script>(.*?)</script>", _text, re.S)
+    check(len(_invite_scripts) == 1 and hashlib.sha256(_invite_scripts[0].encode("utf-8")).hexdigest() == INVITE_SCRIPT_SHA256,
+          f"{_name}: the invite script changed; test the invite flow on a device, then update INVITE_SCRIPT_SHA256")
 # The invite page's stylesheet carries the same palette as site.css.
 try:
     _styles_root = re.search(r"(?m)^:root\s*\{([^}]*)\}", (ROOT / "styles.css").read_text(encoding="utf-8"))
@@ -1432,11 +1509,15 @@ except OSError:
     pass
 check(f'<meta name="theme-color" content="{PINNED_PALETTE["ground"]}">' in INVITE,
       f"invite.html: theme-color is not the ground {PINNED_PALETTE['ground']}")
-INVITE_SHA256 = "7e0611be2aefaf2c172b573ae9a2c09ea1beeb4fb94b7accd300c532228f55e8"
-check(hashlib.sha256(INVITE.encode("utf-8")).hexdigest() == INVITE_SHA256, "invite.html: changed; test the invite flow, then update INVITE_SHA256")
-for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"',
-               'href="https://apps.apple.com/app/id6756961710"'):
+INVITE_SOURCE_SHA256 = "80ef022885eca53f0245c9d84fde5ef4659f0145ce78c7263df91e26c22e7d9a"
+check(hashlib.sha256(INVITE_SOURCE.encode("utf-8")).hexdigest() == INVITE_SOURCE_SHA256,
+      "scripts/invite.html: changed; test the invite flow, then update INVITE_SOURCE_SHA256")
+for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"'):
     check(marker in INVITE, f"invite.html: missing {marker!r}")
+# Its three App Store links (the download step, the fallback and the footer
+# badge) all come from the campaign config, checked with every page's in s.
+check(INVITE_SOURCE.count('href="{{app_store_url}}"') == 3 and "apps.apple.com" not in INVITE_SOURCE,
+      "scripts/invite.html: the App Store links are not the three {{app_store_url}} placeholders")
 for m in re.finditer(r'(?:href|src)="(/[^"#?]*)', INVITE):
     path_part = m.group(1).lstrip("/")
     target = ROOT / ("index.html" if path_part == "" else path_part)
