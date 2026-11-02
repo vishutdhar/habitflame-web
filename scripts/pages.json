@@ -532,7 +532,7 @@
           "No paid tier at all, where HabitFlame limits the free version to 5 habits."
         ]},
         {"h2": "Updates"},
-        {"p": "The HabitShare iPhone app was last updated in January 2023, according to its App Store listing. HabitFlame was updated in September 2026. That is not a statement about quality, only about how recently each app has changed, which matters for compatibility with new iPhones and new versions of iOS."},
+        {"p": "The HabitShare iPhone app was last updated in January 2023, according to its App Store listing. HabitFlame was last updated in October 2026. That is not a statement about quality, only about how recently each app has changed, which matters for compatibility with new iPhones and new versions of iOS."},
         {"h2": "Side by side"},
         {"table": {
           "head": ["", "HabitShare", "HabitFlame"],
@@ -545,7 +545,7 @@
             ["Focus timer", "Not listed", "Pomodoro timer included"],
             ["Widgets", "Not listed", "Home and lock screen, plus a partner widget"],
             ["Streak milestones", "Not listed", "Celebrations and 16 badges"],
-            ["Last iPhone update", "January 2023", "September 2026"]
+            ["Last iPhone update", "January 2023", "October 2026"]
           ]
         }},
         {"h2": "Which one to pick"},
