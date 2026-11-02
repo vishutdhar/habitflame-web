@@ -434,6 +434,11 @@ const LOCAL_URLS = [
   'http://[::1]:8000/', 'http://[0:0:0:0:0:0:0:1]/', 'http://[::ffff:127.0.0.1]/',
   'http://0.0.0.0:8080/', 'http://macbook.local/', 'http://macbook.local.:8000/',
   'http://habitflame.localhost/', 'http://app.localhost.:3000/', 'file:///Users/x/habitflame-web/index.html',
+  // Private and link local networks, IPv4 and IPv6 (RFC 1918, RFC 3927, RFC 4193, RFC 4291).
+  'http://10.0.0.1/', 'http://10.255.255.254:8080/', 'http://172.16.0.2/', 'http://172.31.255.255/',
+  'http://192.168.1.20:5173/', 'http://169.254.10.1/', 'http://[fd00::1]/', 'http://[fc00::1]:8000/',
+  'http://[fdab:cdef:1234::7]/', 'http://[fe80::1]/', 'http://[febf::1]/', 'http://[::ffff:192.168.1.1]/',
+  'http://[::ffff:10.0.0.1]/', 'http://[::ffff:172.20.1.1]/',
 ];
 
 test('a local page sends nothing, stores nothing and listens for nothing', () => {
@@ -456,7 +461,9 @@ test('every loopback and local host is not measurable, and public hosts are', ()
     assert.equal(measurable({}, { hostname: at.hostname, protocol: at.protocol }), false, url);
   }
   for (const host of ['habitflame.vishutdhar.com', 'habitflame-web-git-x-vishutdhar.vercel.app', 'vishutdhar.github.io',
-    'localhost.example.com', 'local.example.com', '128.0.0.1', '10.0.0.1', 'my-localhost-blog.com', '[2606:4700::1]']) {
+    'localhost.example.com', 'local.example.com', '128.0.0.1', '8.8.8.8', 'my-localhost-blog.com', '[2606:4700::1]',
+    '172.15.0.1', '172.32.0.1', '192.169.0.1', '169.255.0.1', '11.0.0.1', '[fe00::1]', '[fec0::1]', '[fb00::1]',
+    '[::ffff:8.8.8.8]', '10.example.com']) {
     assert.equal(isLocalHost(host), false, host);
     assert.equal(measurable({}, { hostname: host, protocol: 'https:' }), true, host);
   }

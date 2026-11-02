@@ -579,7 +579,7 @@
         {"p": "Send them an invite link from the Partners tab, or show them the QR code if you are together. Pairing is free for both of you, and so are reactions and nudges."},
         {"h2": "Your first 30 days"},
         {"p": "Thirty days is a stretch you can picture on the first of January, and short enough to say yes to. HabitFlame marks the way with streak milestones at 7, 14, 21 and 30 days, each with a celebration in the app, and keeps going after that with milestones at 50, 75 and 100 days."},
-        {"p": "This plan is for a habit you do every day. For a habit on specific days, only the scheduled days count toward its streak, and a weekly target adds a week's completions once the target is met, so the same milestones arrive later than these weeks."},
+        {"p": "This plan is for a habit you do every day. For a habit on specific days, only the scheduled days count toward its streak, so each milestone comes later than these weeks. A weekly target adds a week's completions to its streak once the target is met, so the streak moves a week at a time, three, six, then nine for three a week, and it can step past a milestone such as 7 days without landing on it; a milestone the streak steps past is not celebrated."},
         {"ul": [
           "Week one: aim for every scheduled day, and expect one of them to be hard. The 7 day milestone is the first on the way.",
           "Week two: keep the habit small even when it starts to feel easy. The 14 day milestone comes at the end of it.",

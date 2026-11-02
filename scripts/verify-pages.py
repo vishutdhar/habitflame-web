@@ -1073,14 +1073,65 @@ _measure_events = sorted(set(re.findall(r"send\('([^']+)'", _measure_code)))
 check(_measure_events == ["$pageview", "store_link_clicked"], f"measure.js: sends {_measure_events}, want only $pageview and store_link_clicked")
 
 # u2. measure.js is deployed with the pages, so its comments and strings are
-#     held to the copy rules too (banned phrases, no spaced hyphen; code such
-#     as a subtraction is not prose), and it must parse as a module. The
-#     parse uses node with the module type given, so it does not depend on a
-#     package.json; without node the gate cannot vouch for the file and fails.
+#     held to the copy rules too (banned phrases, no spaced hyphen), read the
+#     way JavaScript produces them: escapes are decoded, and a template
+#     literal's interpolations are code, not prose, so a subtraction inside
+#     one passes while any string literal inside one is still read. It must
+#     also parse as a module. The parse uses node with the module type given,
+#     so it does not depend on a package.json; without node the gate cannot
+#     vouch for the file and fails.
+JS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+
+
+def js_literal(text: str, i: int, quote: str) -> "tuple[list[str], list[str], int]":
+    """Read a string or template literal whose opening quote is just before
+    index i: its prose pieces with escapes decoded, the source of its
+    interpolations, and the index after its closing quote."""
+    pieces, exprs, buf, n = [], [], [], len(text)
+    while i < n and text[i] != quote:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            esc_ch = text[i + 1]
+            if esc_ch == "u" and text.startswith("{", i + 2):
+                end = text.find("}", i + 3)
+                if end > 0 and re.fullmatch(r"[0-9a-fA-F]{1,6}", text[i + 3:end]):
+                    buf.append(chr(int(text[i + 3:end], 16)))
+                    i = end + 1
+                    continue
+            if esc_ch == "u" and re.fullmatch(r"[0-9a-fA-F]{4}", text[i + 2:i + 6]):
+                buf.append(chr(int(text[i + 2:i + 6], 16)))
+                i += 6
+                continue
+            if esc_ch == "x" and re.fullmatch(r"[0-9a-fA-F]{2}", text[i + 2:i + 4]):
+                buf.append(chr(int(text[i + 2:i + 4], 16)))
+                i += 4
+                continue
+            buf.append(JS_ESCAPES.get(esc_ch, esc_ch))
+            i += 2
+            continue
+        if quote == "`" and text.startswith("${", i):
+            pieces.append("".join(buf))
+            buf = []
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if text[j] in "'\"`":
+                    j = js_literal(text, j + 1, text[j])[2]
+                    continue
+                depth += {"{": 1, "}": -1}.get(text[j], 0)
+                j += 1
+            exprs.append(text[i + 2:j - 1])
+            i = j
+            continue
+        buf.append(ch)
+        i += 1
+    pieces.append("".join(buf))
+    return pieces, exprs, i + 1
+
+
 def js_prose(text: str) -> list[str]:
-    """The comments and string literals of a JavaScript file. Regular
-    expression literals are skipped, so a slash inside one is not read as
-    the start of a comment."""
+    """The comments and string literals of a JavaScript file, including those
+    inside template interpolations. Regular expression literals are skipped,
+    so a slash inside one is not read as the start of a comment."""
     out, i, n, last = [], 0, len(text), ""
     while i < n:
         c = text[i]
@@ -1095,16 +1146,11 @@ def js_prose(text: str) -> list[str]:
             out.append(text[i + 2:j])
             i = j + 2
         elif c in "'\"`":
-            j, buf = i + 1, []
-            while j < n and text[j] != c:
-                if text[j] == "\\" and j + 1 < n:
-                    buf.append(text[j + 1])
-                    j += 2
-                    continue
-                buf.append(text[j])
-                j += 1
-            out.append("".join(buf))
-            i, last = j + 1, c
+            pieces, exprs, j = js_literal(text, i + 1, c)
+            out.extend(pieces)
+            for expr in exprs:
+                out.extend(js_prose(expr))
+            i, last = j, c
         elif c == "/" and (last == "" or last in "(,=:[!&|?{};+-*%<>~^" or re.search(r"\b(?:return|typeof|case|in|of)$", text[:i].rstrip())):
             j, in_class = i + 1, False
             while j < n and (text[j] != "/" or in_class):
@@ -1137,24 +1183,67 @@ try:
 except OSError:
     failures.append("measure.js: node is not available to check that it parses")
 
+# Words that turn a sentence into a denial, shared by the copy rules below.
+NEGATION = re.compile(r"\b(?:not|cannot|never|no)\b|n't\b", re.I)
+
+
+def negated_before(sentence: str, start: int) -> bool:
+    """Whether one of the three words before a position negates it."""
+    words = re.findall(r"[\w']+", sentence[:start])[-3:]
+    return any(w.lower() in {"not", "never", "no", "cannot"} or w.lower().endswith("n't") for w in words)
+
+
 # v. Nothing a reader comes for is hidden. On every generated page the h1,
 #    the article (the landing's main, a guide's or policy's article body)
 #    and, on the landing and the guides, the first App Store button sit in
-#    no element that is hidden, aria-hidden, inert or styled display: none
-#    or visibility: hidden, and in no template or noscript.
+#    no element that is hidden, aria-hidden, inert or styled display none or
+#    visibility hidden, and in no template or noscript; and nothing inside
+#    the article that hides that way wraps its text (a paragraph, list,
+#    heading, definition, table, quote or caption) or a store button. Inline
+#    styles are read as a browser reads them: whitespace anywhere,
+#    declarations in order, the last display and visibility values winning.
+TEXT_BLOCKS = {"p", "li", "ul", "ol", "dl", "dt", "dd", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote", "figcaption"}
+
+
+def css_hides(style: str) -> bool:
+    decls: dict[str, str] = {}
+    for part in re.sub(r"\s+", "", style.lower()).split(";"):
+        prop, sep, value = part.partition(":")
+        if sep:
+            decls[prop] = value.replace("!important", "")
+    return decls.get("display") == "none" or decls.get("visibility") in {"hidden", "collapse"}
+
+
+def hidden_itself(n) -> "str | None":
+    if "hidden" in n.attrs:
+        return f"<{n.tag}> has the hidden attribute"
+    if (n.attrs.get("aria-hidden") or "").lower() == "true":
+        return f"<{n.tag}> is aria-hidden"
+    if "inert" in n.attrs:
+        return f"<{n.tag}> is inert"
+    if css_hides(n.attrs.get("style") or ""):
+        return f"<{n.tag}> is styled {n.attrs.get('style')!r}"
+    if n.tag in {"template", "noscript"}:
+        return f"it sits in <{n.tag}>"
+    return None
+
+
 def hidden_reason(node) -> "str | None":
     for n in [node, *node.ancestors()]:
-        style = (n.attrs.get("style") or "").replace(" ", "").lower()
-        if "hidden" in n.attrs:
-            return f"<{n.tag}> has the hidden attribute"
-        if (n.attrs.get("aria-hidden") or "").lower() == "true":
-            return f"<{n.tag}> is aria-hidden"
-        if "inert" in n.attrs:
-            return f"<{n.tag}> is inert"
-        if "display:none" in style or "visibility:hidden" in style:
-            return f"<{n.tag}> is styled {style!r}"
-        if n.tag in {"template", "noscript"}:
-            return f"it sits in <{n.tag}>"
+        why = hidden_itself(n)
+        if why:
+            return why
+    return None
+
+
+def hidden_inside(node) -> "str | None":
+    """A hidden element inside node that wraps text or a store button."""
+    for d in node.walk():
+        if d is node:
+            continue
+        why = hidden_itself(d)
+        if why and any(x.tag in TEXT_BLOCKS or (x.tag == "a" and "store" in x.classes) for x in d.walk()):
+            return f"{why} inside it"
     return None
 
 
@@ -1169,23 +1258,31 @@ for page, rel in HTML_PAGES:
         if _node is None:
             failures.append(f"{rel}: the {_name} is missing")
             continue
-        _why = hidden_reason(_node)
+        _why = hidden_reason(_node) or (hidden_inside(_node) if _name == "article" else None)
         check(_why is None, f"{rel}: the {_name} is hidden ({_why})")
 
 # w. Choosing which habits each partner follows is a Premium feature: the
 #    app shows Shared Habits only when PartnersPresentation.showsPushOptions
 #    holds, which is hasPro && isReachable (PartnerReachability.swift). So a
-#    sentence about choosing habits per partner says Premium in that same
-#    sentence (a later sentence of the paragraph is too late: "For each
-#    partner you decide which habits to share. With Premium, ..." reads as
-#    if the choice were free), and a guide table row about it says No or Not
-#    included under Free. Every page is read, the policy pages included: the
-#    terms describe the same choice. On the comparison page a sentence
-#    naming the competitor describes the competitor and is exempt.
+#    sentence about choosing which habits a partner or friend gets says
+#    Premium in that same sentence, as a condition ("without Premium" is not
+#    one); a sentence saying the free version can choose fails unless it
+#    denies it; and a guide table row about the choice says No or Not
+#    included under Free. Choosing habits to build, with no word about
+#    sharing, partners, friends or following, is planning advice and passes.
+#    Every page is read, the policy pages included. On the comparison page a
+#    sentence about the competitor alone (it names the competitor and not
+#    HabitFlame) describes the competitor and is exempt.
 SELECTION = re.compile(
     r"\bshare all habits\b|\bwhich (?:of your )?habits (?:each|to share|they are part of|you (?:will )?share|you choose)\b"
-    r"|\b(?:choose|chooses|decide|decides|pick|picks) which habits\b|\b(?:pick|picks) the habits\b"
-    r"|\bhabits per (?:friend|partner)\b|\bhabits you choose\b|\bones you choose\b", re.I)
+    r"|\b(?:choose|chooses|decide|decides|pick|picks) which habits\b|\b(?:choose|chooses|pick|picks|select|selects) the habits\b"
+    r"|\bhabits to share\b|\bhabits per (?:friend|partner)\b|\bhabits you choose\b|\bones you choose\b", re.I)
+SHARING = re.compile(r"\bshar\w*|\bpartners?\b|\bfriends?\b|\bfollow\w*|\bpart of\b|\bhears? about\b|\bsent\b|\bsends?\b", re.I)
+PREMIUM_CONDITION = re.compile(r"(?<!without )\bPremium\b", re.I)
+FREE_CHOICE = re.compile(
+    r"\bfree\b(?:\s+[\w']+){0,4}?\s+(?:choose|chooses|pick|picks|decide|decides|select|selects)\b"
+    r"|\b(?:choose|chooses|pick|picks|decide|decides|select|selects)\b(?:\s+[\w']+){0,5}?\s+(?:for free|free of charge|on the free version|in the free version)\b",
+    re.I)
 for page, rel in HTML_PAGES:
     _root = parse(FRESH[rel])
     _comp = page.get("competitor") if page else None
@@ -1194,10 +1291,16 @@ for page, rel in HTML_PAGES:
     _units += [("title", gen.page_title(page)), ("meta description", gen.page_description(page))]
     for _where, _text in _units:
         for _sentence in sentences(_text):
-            if not SELECTION.search(_sentence) or (_comp and whole(_comp).search(_sentence)):
+            if not SELECTION.search(_sentence) or not SHARING.search(_sentence):
                 continue
-            check(premium_word.search(_sentence) is not None,
-                  f"{rel}: habit selection is Premium only, but this {_where} sentence does not say Premium: {_sentence!r}")
+            if _comp and whole(_comp).search(_sentence) and not whole(PINNED_NAME).search(_sentence):
+                continue
+            if FREE_CHOICE.search(_sentence):
+                _ok = NEGATION.search(_sentence) is not None
+            else:
+                _ok = PREMIUM_CONDITION.search(_sentence) is not None
+            check(_ok, f"{rel}: habit selection is Premium only, but this {_where} sentence does not make it a Premium "
+                       f"feature: {_sentence!r}")
     for _table in by_tag(_root, "table"):
         _head = table_head(_table)
         for _tr in by_tag(first(_table, lambda n: n.tag == "tbody") or _table, "tr"):
@@ -1208,7 +1311,7 @@ for page, rel in HTML_PAGES:
                 check(len(_cells) > 1 and _cells[1].lower() in {"no", "not included"},
                       f"{rel}: table row {_cells[0]!r} offers habit selection under Free")
             else:
-                check(premium_word.search(" ".join(_cells)) is not None,
+                check(PREMIUM_CONDITION.search(" ".join(_cells)) is not None,
                       f"{rel}: table row {_cells[0]!r} offers habit selection without saying Premium")
 
 # y. A partner hears about a completion at once only when it is made in the
@@ -1216,9 +1319,14 @@ for page, rel in HTML_PAGES:
 #    alert (HabitCompletionEffects runs the push only when !isBackfill, and
 #    WidgetIntents writes the entry with no partner effects). So any visible
 #    sentence, heading, table cell, title or description that says a
-#    completion reaches the partner the moment it happens, instantly, by an
-#    instant notification or as it happens says "in the app for today".
-IMMEDIATE = re.compile(r"\bthe moment\b|\binstantly\b|\binstant notifications?\b|\bas (?:it|they) happens?\b", re.I)
+#    completion reaches the partner at once, in any wording (the moment,
+#    instantly, an instant notification, as it happens, right away, live,
+#    immediately, in real time, real-time), says "in the app for today". A
+#    sentence that denies it ("does not instantly notify") says nothing at
+#    once and passes; Live Activity is the lock screen timer, not a claim.
+IMMEDIATE = re.compile(
+    r"\bthe moment\b|\binstantly\b|\binstant notifications?\b|\bas (?:it|they) happens?\b|\bright away\b"
+    r"|\blive\b(?!\s+activit)|\bimmediately\b|\bin real[- ]time\b|\breal[- ]time\b", re.I)
 COMPLETING = re.compile(r"\bcomplet(?:e|es|ed|ing|ion|ions)\b", re.I)
 for page, rel in HTML_PAGES:
     _body = first(parse(FRESH[rel]), lambda n: n.tag == "body")
@@ -1226,27 +1334,58 @@ for page, rel in HTML_PAGES:
     _texts += [gen.page_title(page), gen.page_description(page)]
     for _text in _texts:
         for _sentence in sentences(_text):
-            if IMMEDIATE.search(_sentence) and COMPLETING.search(_sentence) and "in the app for today" not in _sentence.lower():
+            if not COMPLETING.search(_sentence) or "in the app for today" in _sentence.lower():
+                continue
+            if any(not negated_before(_sentence, m.start()) for m in IMMEDIATE.finditer(_sentence)):
                 failures.append(f"{rel}: a completion reaches the partner at once without 'in the app for today': {_sentence!r}")
 
 # x. Milestones reached by calendar week hold only for a habit done every
 #    day: a streak counts only scheduled days (HabitHistory), so a habit on
-#    specific days or a weekly target reaches each milestone later. A page
-#    that sets a week ordinal beside a day milestone says both things.
-WEEK_MILESTONE = re.compile(
-    r"\bweek (?:one|two|three|four|five|[1-5])\b.*\b\d+ day milestones?\b|\b\d+ day milestones?\b.*\bweek (?:one|two|three|four|five|[1-5])\b",
-    re.I | re.S)
-DAILY_QUALIFIERS = ("for a habit you do every day", "only the scheduled days count")
+#    specific days reaches each milestone later. A page that sets a week,
+#    in any wording (week two, the second week, after two weeks, by week
+#    two), beside a day milestone carries a daily qualification ("for a
+#    habit you do every day", "assumes a daily habit", "scheduled days
+#    only" and their like); a sentence that denies the timing passes.
+WEEK_ORDINAL = (r"(?:\bweek (?:one|two|three|four|five|[1-5])\b|\b(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th) week\b"
+                r"|\bafter (?:a|one|two|three|four|five|[1-5]) weeks?\b|\bby week\b|\bwithin (?:a|one|two|three|four|five|[1-5]) weeks?\b)")
+DAY_MILESTONE = r"\b\d+ day milestones?\b"
+WEEK_MILESTONE = re.compile(f"{WEEK_ORDINAL}.*{DAY_MILESTONE}|{DAY_MILESTONE}.*{WEEK_ORDINAL}", re.I | re.S)
+DAILY_QUALIFIERS = re.compile(
+    r"\bfor a habit you do every day\b|\bassumes? a daily habit\b|\bfor a daily habit\b(?! or)"
+    r"|\bonly the scheduled days count\b|\bscheduled days only\b|\bcounts? only (?:the )?scheduled days\b", re.I)
 for page, rel in HTML_PAGES:
     if page_kind(page) == "policy":
         continue
     _root = parse(FRESH[rel])
     _main = first(_root, lambda n: n.tag == "main")
-    _plans = [n.text() for n in _root.find_all(lambda n: n.tag in {"p", "li", "dd"}) if WEEK_MILESTONE.search(n.text())]
+    _plans = []
+    for _n in _root.find_all(lambda n: n.tag in {"p", "li", "dd"}):
+        _text = _n.text()
+        if not WEEK_MILESTONE.search(_text):
+            continue
+        _claims = [s for s in sentences(_text) if re.search(DAY_MILESTONE, s, re.I)]
+        if _claims and all(NEGATION.search(s) for s in _claims):
+            continue
+        _plans.append(_text)
     if _plans:
-        _flat = norm(_main.text()).lower() if _main else ""
-        _missing = [q for q in DAILY_QUALIFIERS if q not in _flat]
-        check(not _missing, f"{rel}: a week by week milestone plan without the daily qualification {_missing}: {_plans[0]!r}")
+        _flat = norm(_main.text()) if _main else ""
+        check(DAILY_QUALIFIERS.search(_flat) is not None,
+              f"{rel}: a week by week milestone plan without the daily qualification: {_plans[0]!r}")
+
+# z. A weekly target's streak grows a week at a time, by that week's
+#    completions once its target is met (WeeklyStreakCalculator), and a
+#    milestone is celebrated only when the streak lands on it exactly
+#    (HabitCompletionEffects): three a week makes three, six, nine and never
+#    seven. A sentence about a weekly target and milestones says a milestone
+#    can be stepped past, never that the same milestones come later.
+STEPS_PAST = re.compile(r"\bwithout landing\b|\bstep\w* past\b|\bskip\w*\b|\bnever lands?\b|\bnot every milestone\b|\bnot celebrated\b", re.I)
+for page, rel in HTML_PAGES:
+    _body = first(parse(FRESH[rel]), lambda n: n.tag == "body")
+    for _text, _owner, _table in (visible_units(_body) if _body else []):
+        for _sentence in sentences(_text):
+            if re.search(r"\bweekly targets?\b", _sentence, re.I) and re.search(r"\bmilestones?\b", _sentence, re.I):
+                check(STEPS_PAST.search(_sentence) is not None,
+                      f"{rel}: a weekly target is promised milestones it can step past: {_sentence!r}")
 
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():

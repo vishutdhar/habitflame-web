@@ -124,19 +124,43 @@ export function declinesMeasurement(nav) {
   return nav?.globalPrivacyControl === true || nav?.doNotTrack === '1';
 }
 
+/// An IPv4 address as its four numbers, or null for anything else.
+function ipv4Octets(host) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  return m ? m.slice(1).map(Number) : null;
+}
+
+/// Addresses that never leave this machine or the local network: this
+/// network (0/8), the private ranges 10/8, 172.16/12 and 192.168/16,
+/// loopback 127/8 and link local 169.254/16.
+function isLocalIPv4([a, b]) {
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
 /// Whether a host is this machine or the local network: localhost and any
-/// name under .localhost, mDNS names under .local, the whole 127.0.0.0/8
-/// loopback block, IPv6 loopback in the forms a browser leaves in
-/// location.hostname (an IPv4 mapped loopback included), and the unspecified
-/// address 0.0.0.0. A trailing dot changes nothing; a missing host counts as
-/// local, so it is never measured.
+/// name under .localhost, mDNS names under .local, local IPv4 addresses (see
+/// isLocalIPv4), IPv6 loopback and the unspecified address, unique local
+/// fc00::/7 and link local fe80::/10 addresses, and any of the IPv4 ones
+/// written as IPv4 mapped IPv6, in the forms a browser leaves in
+/// location.hostname. A trailing dot changes nothing; a missing host counts
+/// as local, so it is never measured.
 export function isLocalHost(hostname) {
   if (typeof hostname !== 'string') return true;
   const host = hostname.toLowerCase().replace(/\.$/, '');
   if (host === '') return true;
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
-  if (host === '0.0.0.0' || /^127(?:\.\d{1,3}){3}$/.test(host)) return true;
-  return host === '[::1]' || host === '::1' || /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/.test(host);
+  const v4 = ipv4Octets(host);
+  if (v4) return isLocalIPv4(v4);
+  const v6 = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+  if (v6 === '::1' || v6 === '::') return true;
+  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v6);
+  if (mapped) {
+    const hi = parseInt(mapped[1], 16);
+    const lo = parseInt(mapped[2], 16);
+    return isLocalIPv4([hi >> 8, hi & 255, lo >> 8, lo & 255]);
+  }
+  return /^f[cd][0-9a-f]{2}:/.test(v6) || /^fe[89ab][0-9a-f]:/.test(v6);
 }
 
 /// Whether this page load may send anything: a public host over http or
