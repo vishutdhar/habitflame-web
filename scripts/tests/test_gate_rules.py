@@ -91,6 +91,39 @@ class HabitSelectionNeedsPremium(GateCopy, unittest.TestCase):
                   '["Habits", "5", "Unlimited"],\n            ["Choose habits per partner", "Included", "Included"],')
         self.assert_gate_fails_with("table row 'Choose habits per partner' offers habit selection under Free")
 
+    def test_a_selection_sentence_in_the_terms_without_premium_fails(self):
+        self.edit("scripts/policies/terms-of-service.html", "<h2>Accountability Partners</h2>\n",
+                  "<h2>Accountability Partners</h2>\n<p>You decide which habits to share with each partner.</p>\n")
+        self.assert_gate_fails_with("terms-of-service.html: habit selection is Premium only")
+
+
+class CompletionsReachThePartnerFromTheAppToday(GateCopy, unittest.TestCase):
+    """A partner hears about a completion at once only when it is made in the
+    app for today: a widget completion or a backfilled day sends no alert
+    (HabitCompletionEffects, WidgetIntents). A sentence saying a completion
+    reaches the partner the moment it happens, instantly or as it happens
+    says so."""
+
+    def add_paragraph(self, text: str) -> None:
+        self.edit("scripts/pages.json", '{"h2": "Pairing with several friends"},',
+                  '{"h2": "Pairing with several friends"},\n        {"p": "' + text + '"},')
+
+    def test_the_moment_without_the_qualification_fails(self):
+        self.add_paragraph("With Premium, each shared habit you complete reaches your friends the moment you do it.")
+        self.assert_gate_fails_with("habit-tracker-with-friends.html: a completion reaches the partner at once without 'in the app for today'")
+
+    def test_instantly_without_the_qualification_fails(self):
+        self.add_paragraph("With Premium, your completions arrive on their phone instantly.")
+        self.assert_gate_fails_with("habit-tracker-with-friends.html: a completion reaches the partner at once without 'in the app for today'")
+
+    def test_as_it_happens_without_the_qualification_fails(self):
+        self.add_paragraph("With Premium, they see each shared completion as it happens.")
+        self.assert_gate_fails_with("habit-tracker-with-friends.html: a completion reaches the partner at once without 'in the app for today'")
+
+    def test_the_qualified_sentence_passes(self):
+        self.add_paragraph("With Premium, each shared habit you complete in the app for today reaches your friends the moment you do it.")
+        self.assert_gate_passes()
+
 
 class StructuredDataWording(GateCopy, unittest.TestCase):
     """The app's structured data descriptions are pinned in the gate, so a

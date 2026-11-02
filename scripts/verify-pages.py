@@ -1179,15 +1179,14 @@ for page, rel in HTML_PAGES:
 #    sentence (a later sentence of the paragraph is too late: "For each
 #    partner you decide which habits to share. With Premium, ..." reads as
 #    if the choice were free), and a guide table row about it says No or Not
-#    included under Free. On the comparison page a sentence naming the
-#    competitor describes the competitor and is exempt.
+#    included under Free. Every page is read, the policy pages included: the
+#    terms describe the same choice. On the comparison page a sentence
+#    naming the competitor describes the competitor and is exempt.
 SELECTION = re.compile(
     r"\bshare all habits\b|\bwhich (?:of your )?habits (?:each|to share|they are part of|you (?:will )?share|you choose)\b"
     r"|\b(?:choose|chooses|decide|decides|pick|picks) which habits\b|\b(?:pick|picks) the habits\b"
     r"|\bhabits per (?:friend|partner)\b|\bhabits you choose\b|\bones you choose\b", re.I)
 for page, rel in HTML_PAGES:
-    if page_kind(page) == "policy" and rel != "support.html":
-        continue
     _root = parse(FRESH[rel])
     _comp = page.get("competitor") if page else None
     _units = [(n.tag, n.text()) for n in _root.find_all(lambda n: n.tag in {"p", "li", "dt", "dd", "h1", "h2", "h3"})
@@ -1211,6 +1210,24 @@ for page, rel in HTML_PAGES:
             else:
                 check(premium_word.search(" ".join(_cells)) is not None,
                       f"{rel}: table row {_cells[0]!r} offers habit selection without saying Premium")
+
+# y. A partner hears about a completion at once only when it is made in the
+#    app for today: a completion from a widget or for a past day sends no
+#    alert (HabitCompletionEffects runs the push only when !isBackfill, and
+#    WidgetIntents writes the entry with no partner effects). So any visible
+#    sentence, heading, table cell, title or description that says a
+#    completion reaches the partner the moment it happens, instantly, by an
+#    instant notification or as it happens says "in the app for today".
+IMMEDIATE = re.compile(r"\bthe moment\b|\binstantly\b|\binstant notifications?\b|\bas (?:it|they) happens?\b", re.I)
+COMPLETING = re.compile(r"\bcomplet(?:e|es|ed|ing|ion|ions)\b", re.I)
+for page, rel in HTML_PAGES:
+    _body = first(parse(FRESH[rel]), lambda n: n.tag == "body")
+    _texts = [t for t, _owner, _table in (visible_units(_body) if _body else [])]
+    _texts += [gen.page_title(page), gen.page_description(page)]
+    for _text in _texts:
+        for _sentence in sentences(_text):
+            if IMMEDIATE.search(_sentence) and COMPLETING.search(_sentence) and "in the app for today" not in _sentence.lower():
+                failures.append(f"{rel}: a completion reaches the partner at once without 'in the app for today': {_sentence!r}")
 
 # x. Milestones reached by calendar week hold only for a habit done every
 #    day: a streak counts only scheduled days (HabitHistory), so a habit on
