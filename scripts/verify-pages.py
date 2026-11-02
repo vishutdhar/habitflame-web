@@ -1486,6 +1486,19 @@ COUPLES_TEXT = norm(first(parse(FRESH["habit-app-for-couples.html"]), lambda n: 
 for must in ("With Family Sharing, one purchase also unlocks Premium for the people in your Apple family",
              "Family Sharing lets one purchase unlock Premium for both of you"):
     check(must in COUPLES_TEXT, f"habit-app-for-couples.html: missing {must!r}")
+# The landing's store note says what 4.6.0 changed on wide screens, in the
+# words of its release notes ("Partners and Settings sit in a comfortable
+# column on iPad and an unfolded iPhone Duo"): the readable column in
+# AccountabilityPartnersView.swift and SettingsView.swift. It is the only
+# Duo claim on the site, and the hero's store note shows it under the
+# store button.
+DUO_SENTENCE = "On iPad and an unfolded iPhone Duo, Partners and Settings sit in a comfortable column."
+_hero_notes = [n.text() for n in parse(FRESH["index.html"]).walk() if "store-note" in n.classes]
+check(_hero_notes == [f"On the App Store for iPhone and iPad. {DUO_SENTENCE}"],
+      f"index.html: the hero store note is {_hero_notes}, want the App Store line and the 4.6.0 Duo sentence")
+for rel in HTML_OUTPUTS:
+    if rel != "index.html":
+        check("Duo" not in FRESH[rel], f"{rel}: names the Duo; the landing's store note is the one place for it")
 SUPPORT_TEXT = norm(htmlmod.unescape(re.sub(r"<[^>]+>", " ", SUPPORT)))
 for false_sentence in ("With Premium, iCloud sync keeps your habits synchronized across all your devices automatically.",
                        "With Premium, iCloud sync keeps your habits in sync across all your iPhone and iPad devices.",
