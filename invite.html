@@ -25,6 +25,7 @@
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon-180.png">
     <link rel="preload" href="/assets/fonts/bricolage-grotesque-opsz-wght-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/styles.css?v=2026-10-16-app">
+    <script type="module" async src="/measure.js?v=2d847a388093"></script>
 </head>
 <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -58,7 +59,7 @@
                     <div class="body">
                         <div class="t">Download HabitFlame</div>
                         <div class="d">Get HabitFlame from the App Store on your iPhone.</div>
-                        <a href="https://apps.apple.com/app/id6756961710" class="btn-app step-store">Download on the App Store</a>
+                        <a href="https://apps.apple.com/app/id6756961710" class="btn-app step-store" data-placement="invite_step">Download on the App Store</a>
                     </div>
                 </div>
                 <div class="step">
@@ -87,7 +88,7 @@
             </div>
             <h1>This invite link looks incomplete.</h1>
             <p>We could not read a valid invite code from this link. Download HabitFlame, then ask your partner to resend their invite, or enter their code under Partners in the app.</p>
-            <a href="https://apps.apple.com/app/id6756961710" class="btn-app">Download on the App Store</a>
+            <a href="https://apps.apple.com/app/id6756961710" class="btn-app" data-placement="invite_fallback">Download on the App Store</a>
         </section>
     </main>
 
@@ -100,7 +101,7 @@
                 <a href="/support">Support</a>
                 <a href="mailto:support@freedom-terminal.com">support@freedom-terminal.com</a>
             </nav>
-            <a class="badge" href="https://apps.apple.com/app/id6756961710"><img src="/assets/app-store-badge.svg" width="120" height="40" alt="Download on the App Store"></a>
+            <a class="badge" href="https://apps.apple.com/app/id6756961710" data-placement="invite_footer"><img src="/assets/app-store-badge.svg" width="120" height="40" alt="Download on the App Store"></a>
         </div>
         <div class="foot-row foot-small">
             <p class="copy brand-line"><a href="https://freedom-terminal.com/">A Freedom Terminal product</a></p>

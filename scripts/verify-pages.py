@@ -78,6 +78,17 @@ PINNED_APP_STORE_URL = "https://apps.apple.com/us/app/habit-flame-streak-tracker
 PINNED_INVITE_STORE_URL = "https://apps.apple.com/app/id6756961710"
 # The App Store id of HabitFlame, which the Smart App Banner names.
 PINNED_APP_ID = "6756961710"
+# Every App Store link names its place on the page in data-placement, which
+# measure.js sends with each click. Funnel queries filter on these names, so
+# they are pinned per page, in page order; every guide has the same four.
+PINNED_PLACEMENTS = {
+    "index.html": ["home_nav", "home_hero", "home_cta", "home_footer"],
+    "support.html": ["support_nav", "support_footer"],
+    "privacy-policy.html": ["privacy_nav", "privacy_footer"],
+    "terms-of-service.html": ["terms_nav", "terms_footer"],
+    "invite.html": ["invite_step", "invite_fallback", "invite_footer"],
+}
+GUIDE_PLACEMENTS = ["guide_nav", "guide_head", "guide_cta", "guide_footer"]
 # Campaign tokens, one per page. App Analytics reports App Store page views
 # and downloads by these exact strings, so renaming one splits a page's
 # history in two: they are pinned here as well as set in pages.json. Apple
@@ -851,12 +862,12 @@ for page, rel in HTML_PAGES:
     check(bool(meta(root, "property", "og:image:alt")), f"{rel}: og:image:alt is missing")
     check(meta(root, "name", "twitter:card") == "summary_large_image", f"{rel}: twitter:card is {meta(root, 'name', 'twitter:card')!r}")
     # One family, self hosted and preloaded. No stylesheet, font, script or
-    # connection hint for another host: no font service, analytics or widget.
+    # connection hint for another host: no font service, analytics SDK or
+    # widget. The one script file a page may load, this site's own
+    # measure.js, is pinned in u.
     preloads = [n.attrs.get("href") for n in root.walk() if n.tag == "link" and n.attrs.get("rel") == "preload"]
     check(preloads == [f"{PINNED_BASE_URL}/{PINNED_FONT}"], f"{rel}: font preloads are {preloads}")
     for n in root.walk():
-        if n.tag == "script" and n.attrs.get("src"):
-            failures.append(f"{rel}: script file {n.attrs['src']!r}; pages load no script files")
         if n.tag == "link" and n.attrs.get("rel") in {"stylesheet", "preload", "preconnect", "dns-prefetch", "modulepreload"} \
                 and not (n.attrs.get("href") or "").startswith(PINNED_BASE_URL + "/"):
             failures.append(f"{rel}: {n.attrs.get('rel')} link to another host: {n.attrs.get('href')!r}")
@@ -948,6 +959,9 @@ for rel in HTML_OUTPUTS:
     for n in store_links:
         check(n.tag == "a" and n.attrs.get("href") == want and "src" not in n.attrs,
               f"{rel}: App Store {n.tag} {n.attrs.get('href') or n.attrs.get('src')!r}, want <a href={want!r}>")
+    placements = [n.attrs.get("data-placement") for n in store_links]
+    want_placements = PINNED_PLACEMENTS.get(rel, GUIDE_PLACEMENTS)
+    check(placements == want_placements, f"{rel}: App Store link placements are {placements}, want {want_placements} in page order")
     mentions = raw.count("apps.apple.com")
     named = len(store_links) + (1 if rel == "index.html" else 0)
     check(mentions == named, f"{rel}: the store host appears {mentions} times, but the page has {len(store_links)} App Store links"
@@ -967,6 +981,50 @@ for rel in HTML_OUTPUTS:
     check([n.attrs.get("content") for n in banners] == [f"app-id={PINNED_APP_ID}"],
           f"{rel}: Smart App Banner tags {[n.attrs.get('content') for n in banners]}, want exactly one 'app-id={PINNED_APP_ID}'")
     check(all(any(a.tag == "head" for a in n.ancestors()) for n in banners), f"{rel}: the Smart App Banner tag is outside the head")
+
+# u. Measurement. Every page but the privacy policy loads this site's own
+#    measure.js, and nothing else by source: one async module in the head,
+#    versioned by the file's hash, absolute like every other asset on the
+#    generated pages and root relative on the invite page, like the rest of
+#    its assets. The privacy policy loads no script file and never names the
+#    module. The module itself posts only a page view and a store click to
+#    the shared project's capture endpoint, with the app's slug, and keeps no
+#    cookie and nothing in localStorage. Its behaviour is pinned by
+#    scripts/tests/measure.test.mjs.
+NOT_MEASURED = {"privacy-policy.html"}
+try:
+    MEASURE_BYTES = (ROOT / "measure.js").read_bytes()
+except OSError:
+    MEASURE_BYTES = b""
+    failures.append("measure.js: missing")
+MEASURE_TEXT = MEASURE_BYTES.decode("utf-8", errors="replace")
+MEASURE_VERSION = hashlib.sha256(MEASURE_BYTES).hexdigest()[:12]
+check(getattr(gen, "NOT_MEASURED", None) == NOT_MEASURED, f"generator NOT_MEASURED is {getattr(gen, 'NOT_MEASURED', None)}, want {NOT_MEASURED}")
+for rel in HTML_OUTPUTS:
+    raw = FRESH[rel]
+    sourced = [n for n in parse(raw).walk() if n.tag == "script" and "src" in n.attrs]
+    if rel in NOT_MEASURED:
+        check(sourced == [] and "measure.js" not in raw, f"{rel}: loads {[n.attrs.get('src') for n in sourced]}; this page is never measured")
+        continue
+    want_src = (f"/measure.js?v={MEASURE_VERSION}" if rel == "invite.html"
+                else f"{PINNED_BASE_URL}/measure.js?v={MEASURE_VERSION}")
+    check([n.attrs.get("src") for n in sourced] == [want_src], f"{rel}: script files {[n.attrs.get('src') for n in sourced]}, want only {want_src}")
+    for n in sourced:
+        check(n.attrs.get("type") == "module" and "async" in n.attrs and "defer" not in n.attrs and not n.text().strip(),
+              f"{rel}: the measure.js tag is not an empty async module script: {n.attrs}")
+        check(any(a.tag == "head" for a in n.ancestors()), f"{rel}: the measure.js tag is outside the head")
+    check(raw.count("measure.js") == 1, f"{rel}: names measure.js {raw.count('measure.js')} times, want the one tag")
+for must in ("export const ENDPOINT = 'https://us.i.posthog.com/i/v0/e/';",
+             "export const TOKEN = 'phc_J1tSpBnq3nRgP8VrUlkhQCoB0wIORi3m6EU2q2N537O';",
+             "app: 'habitflame',", "bundle_id: 'habitflame.vishutdhar.com',", "$process_person_profile: false,",
+             "nav?.globalPrivacyControl === true", "nav?.doNotTrack === '1'", "win.sessionStorage",
+             "path: reportedPath(location.pathname),", "$referrer: referrerAddress(page.referrer),"):
+    check(must in MEASURE_TEXT, f"measure.js: missing {must!r}")
+_measure_code = "\n".join(l for l in MEASURE_TEXT.splitlines() if not l.lstrip().startswith("//"))
+for banned_use in (r"\bcookie\b", r"\blocalStorage\b", r"\bindexedDB\b", r"\blocation\.(?:href|hash)\b", r"\bimport\b"):
+    check(re.search(banned_use, _measure_code) is None, f"measure.js: matches {banned_use!r}, which the module never uses")
+_measure_events = sorted(set(re.findall(r"send\('([^']+)'", _measure_code)))
+check(_measure_events == ["$pageview", "store_link_clicked"], f"measure.js: sends {_measure_events}, want only $pageview and store_link_clicked")
 
 # 9. Every allowed negated form is one the copy actually uses.
 for form, count in negated_forms_used.items():
@@ -1323,6 +1381,18 @@ for must in ("Session replay is turned off", "in your private iCloud database", 
              "These counters are not deleted",
              "your IP address, which reaches PostHog with each request; PostHog is set to discard it, and no location is derived from it"):
     check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
+# What measure.js sends, and what it never does, each checked against the
+# module and its tests when it was written.
+for must in ("This website is measured through PostHog", "Each click on an App Store link is counted with which link it was",
+             "an address is sent without its query or fragment",
+             "an invite page is sent as /invite, without the invite code or the name and identifier of the person who invited you",
+             "The website sets no cookies and stores nothing in your browser's local storage",
+             "a random value your browser keeps for the current tab and discards when the tab closes",
+             "If your browser sends Global Privacy Control or Do Not Track, the website sends nothing at all",
+             "This page is never measured"):
+    check(must in POLICY_TEXT, f"privacy-policy.html: missing {must!r} from the visible page")
+check(gen.POLICIES[1].get("deck") == "Last updated: November 2, 2026",
+      f"privacy-policy.html: deck is {gen.POLICIES[1].get('deck')!r}; the website section is new on November 2, 2026")
 # Sentences from the retired policies, false about what the app does: the
 # first four from the old GitHub Pages policy, the rest from the old custom
 # domain policy (partner activity relayed on every plan, Health data never
@@ -1526,7 +1596,7 @@ except OSError:
     pass
 check(f'<meta name="theme-color" content="{PINNED_PALETTE["ground"]}">' in INVITE,
       f"invite.html: theme-color is not the ground {PINNED_PALETTE['ground']}")
-INVITE_SOURCE_SHA256 = "a0f9cab217e6fa214deadfd656f091af5ccd41c9a62e09291f37c1b421e7dcb2"
+INVITE_SOURCE_SHA256 = "cf18aa75b0d8ec26b1b2b8e9f856ffb59e605f5839e44deca3a8c2500f06e98d"
 check(hashlib.sha256(INVITE_SOURCE.encode("utf-8")).hexdigest() == INVITE_SOURCE_SHA256,
       "scripts/invite.html: changed; test the invite flow, then update INVITE_SOURCE_SHA256")
 for marker in ('window.location.pathname', '"habitflame://invite?code="', 'id="open-app-btn"', 'id="code-value"'):

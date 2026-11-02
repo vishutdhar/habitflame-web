@@ -30,9 +30,14 @@ provider token is set in pages.json (site.app_store_campaign.pt); each page
 has its own campaign token, "ct". With the provider token empty every link is
 the bare listing URL, exactly as before campaigns existed.
 
+Every page but the privacy policy loads measure.js, the site's own
+measurement module (hand written at the repo root, not generated), and every
+App Store link names its place on the page in data-placement.
+
 Checks, from the repository root:
   python3 scripts/verify-pages.py                    the site gate
   python3 -m unittest discover -s scripts/tests      the generator's tests
+  node --test scripts/tests/measure.test.mjs         the measurement module's tests
 """
 import datetime
 import hashlib
@@ -77,6 +82,13 @@ POLICY_PAGES = [p["file"] for p in POLICIES]
 CAMPAIGN = SITE["app_store_campaign"]
 PROVIDER_TOKEN = re.compile(r"[0-9]{1,20}")
 CAMPAIGN_TOKEN = re.compile(r"[a-z0-9-]{1,30}")
+
+# Site measurement: measure.js, this site's own module, posts a page view
+# and every App Store link click to the shared PostHog project. Every page
+# loads it but the privacy policy, which is never measured. Each App Store
+# link names its place in data-placement: the page's kind, then the slot.
+MEASURE_SCRIPT = "measure.js"
+NOT_MEASURED = {"privacy-policy.html"}
 
 STORE_BUTTON_TEXT = "Download on the App Store"
 STORE_NOTE = "Free to download for iPhone and iPad. Premium is a one-time $9.99 purchase."
@@ -317,19 +329,41 @@ def store_url(ct: str, listing: str | None = None) -> str:
 
 # ---- Shared fragments --------------------------------------------------------
 
-def store_button(page: dict | None) -> str:
-    return f'<a class="store" href="{esc(store_url(page_ct(page)))}">{esc(STORE_BUTTON_TEXT)}</a>'
+def measure_version() -> str:
+    """First 12 hex digits of measure.js's SHA-256, its version in every tag."""
+    return hashlib.sha256((ROOT / MEASURE_SCRIPT).read_bytes()).hexdigest()[:12]
+
+
+def placement_kind(page: dict | None) -> str:
+    """The first half of every placement on a page: home, guide, or the
+    policy page's first word (support, privacy, terms)."""
+    if page is None:
+        return "home"
+    if is_policy(page):
+        return page["file"].split("-")[0].removesuffix(".html")
+    return "guide"
+
+
+def placement(page: dict | None, slot: str) -> str:
+    """An App Store link's data-placement: the page's kind, then the link's
+    slot on the page (nav, hero, head, cta, footer)."""
+    return f"{placement_kind(page)}_{slot}"
+
+
+def store_button(page: dict | None, slot: str) -> str:
+    return (f'<a class="store" href="{esc(store_url(page_ct(page)))}" data-placement="{esc(placement(page, slot))}">'
+            f'{esc(STORE_BUTTON_TEXT)}</a>')
 
 
 def store_note() -> str:
     return f'<p class="store-note">{esc(STORE_NOTE)}</p>'
 
 
-def actions(page: dict | None) -> str:
+def actions(page: dict | None, slot: str) -> str:
     """The landing's two actions: the store button and the share button."""
     return (
         '<div class="actions">\n'
-        f"{store_button(page)}\n"
+        f"{store_button(page, slot)}\n"
         f'<button type="button" class="share" data-share="{esc(SHARE_TEXT)}" hidden>{esc(SHARE_BUTTON_TEXT)}</button>\n'
         "</div>"
     )
@@ -368,7 +402,7 @@ def cta_section(page: dict | None) -> str:
         '<section class="cta">\n'
         f"<h2>{esc(CTA_HEADING)}</h2>\n"
         f"<p>{esc(CTA_TEXT)}</p>\n"
-        f"{store_button(page)}\n"
+        f"{store_button(page, 'cta')}\n"
         "</section>"
     )
 
@@ -411,7 +445,7 @@ def landing_main() -> str:
         '<div class="hero-copy">\n'
         f"<h1>{esc(LANDING['headline'])}</h1>\n"
         f'<p class="lede">{esc(LANDING["lede"])}</p>\n'
-        f"{actions(None)}\n"
+        f"{actions(None, 'hero')}\n"
         f'<p class="store-note">{esc(LANDING["store_note"])}</p>\n'
         "</div>\n"
         # One scene in three planes: the year grid, the phone, and the
@@ -453,7 +487,7 @@ def landing_main() -> str:
         '<section class="cta">\n'
         f"<h2>{esc(CTA_HEADING)}</h2>\n"
         f"<p>{esc(CTA_TEXT)}</p>\n"
-        f"{actions(None)}\n"
+        f"{actions(None, 'cta')}\n"
         "</section>",
         SHARE_SCRIPT,
         MOTION_SCRIPT,
@@ -497,7 +531,7 @@ def article_main(page: dict) -> str:
         '<header class="article-head">\n'
         f"<h1>{esc(page['h1'])}</h1>\n"
         f'<p class="deck">{esc(page["deck"])}</p>\n'
-        f"{store_button(page)}\n"
+        f"{store_button(page, 'head')}\n"
         f"{store_note()}\n"
         "</header>\n"
         f'<div class="article-body">\n{blocks}\n</div>\n'
@@ -628,6 +662,9 @@ def render(page: dict | None) -> str:
         "main": main,
         "app_store_url": esc(store_url(page_ct(page))),
         "app_store_id": esc(SITE["app_store_id"]),
+        "placement": esc(placement_kind(page)),
+        "measure": "" if page_file(page) in NOT_MEASURED else
+                   f'\n<script type="module" async src="{esc(BASE)}/{MEASURE_SCRIPT}?v={measure_version()}"></script>',
         "contact_email": esc(SITE["contact_email"]),
         "brand_url": esc(SITE["brand_url"]),
         "brand_footer": esc(SITE["brand_footer"]),
@@ -640,7 +677,8 @@ def render_invite() -> str:
     Store links filled in. Its code parsing and deep link are its own script,
     which the generator never touches."""
     source = (SCRIPTS / INVITE["source"]).read_text(encoding="utf-8")
-    return fill({"app_store_url": esc(store_url(INVITE["ct"], INVITE["app_store_url"]))}, source)
+    return fill({"app_store_url": esc(store_url(INVITE["ct"], INVITE["app_store_url"])),
+                 "measure_version": measure_version()}, source)
 
 
 def sitemap_urls() -> list[str]:
