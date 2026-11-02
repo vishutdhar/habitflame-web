@@ -1081,30 +1081,54 @@ check(_measure_events == ["$pageview", "store_link_clicked"], f"measure.js: send
 #     so it does not depend on a package.json; without node the gate cannot
 #     vouch for the file and fails.
 JS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+# Escapes JavaScript rejects in a string or untagged template: a code point
+# past U+10FFFF, or a \u or \x without its hex digits. Reported as gate
+# failures, never raised.
+JS_BAD_ESCAPES: list[str] = []
+# Words after which a backtick opens an untagged template, not a tag's.
+JS_EXPRESSION_KEYWORDS = {"return", "typeof", "case", "in", "of", "yield", "await", "void", "delete", "new", "throw",
+                          "else", "do", "instanceof"}
 
 
-def js_literal(text: str, i: int, quote: str) -> "tuple[list[str], list[str], int]":
+def js_literal(text: str, i: int, quote: str, decode: bool = True) -> "tuple[list[str], list[str], int]":
     """Read a string or template literal whose opening quote is just before
     index i: its prose pieces with escapes decoded, the source of its
-    interpolations, and the index after its closing quote."""
+    interpolations, and the index after its closing quote. With decode off
+    (a tagged template, which JavaScript lets carry any escape) escapes are
+    stepped over unread."""
     pieces, exprs, buf, n = [], [], [], len(text)
     while i < n and text[i] != quote:
         ch = text[i]
         if ch == "\\" and i + 1 < n:
             esc_ch = text[i + 1]
+            if not decode:
+                i += 2
+                continue
             if esc_ch == "u" and text.startswith("{", i + 2):
                 end = text.find("}", i + 3)
-                if end > 0 and re.fullmatch(r"[0-9a-fA-F]{1,6}", text[i + 3:end]):
-                    buf.append(chr(int(text[i + 3:end], 16)))
+                digits = text[i + 3:end] if end > 0 else ""
+                if re.fullmatch(r"[0-9a-fA-F]+", digits) and int(digits, 16) <= 0x10FFFF:
+                    buf.append(chr(int(digits, 16)))
                     i = end + 1
                     continue
-            if esc_ch == "u" and re.fullmatch(r"[0-9a-fA-F]{4}", text[i + 2:i + 6]):
-                buf.append(chr(int(text[i + 2:i + 6], 16)))
-                i += 6
+                JS_BAD_ESCAPES.append(text[i:end + 1] if end > 0 else text[i:i + 3])
+                i = end + 1 if end > 0 else i + 2
                 continue
-            if esc_ch == "x" and re.fullmatch(r"[0-9a-fA-F]{2}", text[i + 2:i + 4]):
-                buf.append(chr(int(text[i + 2:i + 4], 16)))
-                i += 4
+            if esc_ch == "u":
+                if re.fullmatch(r"[0-9a-fA-F]{4}", text[i + 2:i + 6]):
+                    buf.append(chr(int(text[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                JS_BAD_ESCAPES.append(text[i:i + 6])
+                i += 2
+                continue
+            if esc_ch == "x":
+                if re.fullmatch(r"[0-9a-fA-F]{2}", text[i + 2:i + 4]):
+                    buf.append(chr(int(text[i + 2:i + 4], 16)))
+                    i += 4
+                    continue
+                JS_BAD_ESCAPES.append(text[i:i + 4])
+                i += 2
                 continue
             buf.append(JS_ESCAPES.get(esc_ch, esc_ch))
             i += 2
@@ -1115,7 +1139,7 @@ def js_literal(text: str, i: int, quote: str) -> "tuple[list[str], list[str], in
             depth, j = 1, i + 2
             while j < n and depth:
                 if text[j] in "'\"`":
-                    j = js_literal(text, j + 1, text[j])[2]
+                    j = js_literal(text, j + 1, text[j], decode)[2]
                     continue
                 depth += {"{": 1, "}": -1}.get(text[j], 0)
                 j += 1
@@ -1130,8 +1154,10 @@ def js_literal(text: str, i: int, quote: str) -> "tuple[list[str], list[str], in
 
 def js_prose(text: str) -> list[str]:
     """The comments and string literals of a JavaScript file, including those
-    inside template interpolations. Regular expression literals are skipped,
-    so a slash inside one is not read as the start of a comment."""
+    inside template interpolations. A tagged template (String.raw`...`) is
+    code: its text is not prose, only its interpolations are read. Regular
+    expression literals are skipped, so a slash inside one is not read as
+    the start of a comment."""
     out, i, n, last = [], 0, len(text), ""
     while i < n:
         c = text[i]
@@ -1146,8 +1172,11 @@ def js_prose(text: str) -> list[str]:
             out.append(text[i + 2:j])
             i = j + 2
         elif c in "'\"`":
-            pieces, exprs, j = js_literal(text, i + 1, c)
-            out.extend(pieces)
+            tag = re.search(r"([A-Za-z_$][\w$]*)\s*$", text[:i])
+            tagged = c == "`" and ((tag is not None and tag.group(1) not in JS_EXPRESSION_KEYWORDS) or last in ")]")
+            pieces, exprs, j = js_literal(text, i + 1, c, decode=not tagged)
+            if not tagged:
+                out.extend(pieces)
             for expr in exprs:
                 out.extend(js_prose(expr))
             i, last = j, c
@@ -1169,7 +1198,10 @@ def js_prose(text: str) -> list[str]:
     return out
 
 
-for _prose in js_prose(MEASURE_TEXT):
+_measure_prose = js_prose(MEASURE_TEXT)
+for _bad in JS_BAD_ESCAPES:
+    failures.append(f"measure.js: invalid escape {_bad!r} in a string literal")
+for _prose in _measure_prose:
     _flat = norm(re.sub(r"\s+", " ", _prose))
     for phrase, rx in banned:
         if rx.search(_flat):
@@ -1205,13 +1237,41 @@ def negated_before(sentence: str, start: int) -> bool:
 TEXT_BLOCKS = {"p", "li", "ul", "ol", "dl", "dt", "dd", "h1", "h2", "h3", "h4", "h5", "h6", "table", "blockquote", "figcaption"}
 
 
+# CSS keywords a display or visibility value may be made of. Any other value
+# is read as not visible, so a typo cannot pass a hidden element as shown.
+DISPLAY_KEYWORDS = {"block", "inline", "run-in", "flow", "flow-root", "table", "flex", "grid", "ruby", "math",
+                    "list-item", "contents", "inline-block", "inline-table", "inline-flex", "inline-grid",
+                    "table-row-group", "table-header-group", "table-footer-group", "table-row", "table-cell",
+                    "table-column-group", "table-column", "table-caption", "ruby-base", "ruby-text",
+                    "ruby-base-container", "ruby-text-container"}
+CSS_WIDE_KEYWORDS = {"inherit", "initial", "unset", "revert", "revert-layer"}
+
+
 def css_hides(style: str) -> bool:
-    decls: dict[str, str] = {}
-    for part in re.sub(r"\s+", "", style.lower()).split(";"):
+    """Whether an inline style hides its element, read as a browser reads it:
+    whitespace collapsed, declarations in order, a later declaration winning
+    unless an earlier one for the same property is !important. display: none,
+    visibility: hidden or collapse, and any display or visibility value that
+    is not made of CSS keywords count as hiding."""
+    won: dict[str, tuple[str, bool]] = {}
+    for part in re.sub(r"\s+", " ", style.lower()).split(";"):
         prop, sep, value = part.partition(":")
-        if sep:
-            decls[prop] = value.replace("!important", "")
-    return decls.get("display") == "none" or decls.get("visibility") in {"hidden", "collapse"}
+        if not sep:
+            continue
+        prop = prop.strip()
+        important = re.search(r"!\s*important\s*$", value) is not None
+        value = re.sub(r"!\s*important\s*$", "", value).strip()
+        if prop in won and won[prop][1] and not important:
+            continue
+        won[prop] = (value, important)
+    display = won.get("display", ("", False))[0]
+    if display and display not in CSS_WIDE_KEYWORDS:
+        if display == "none" or not all(t in DISPLAY_KEYWORDS for t in display.split()):
+            return True
+    visibility = won.get("visibility", ("", False))[0]
+    if visibility and visibility not in CSS_WIDE_KEYWORDS | {"visible"}:
+        return True
+    return False
 
 
 def hidden_itself(n) -> "str | None":

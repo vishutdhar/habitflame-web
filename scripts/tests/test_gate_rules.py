@@ -207,6 +207,29 @@ class HiddenArticleContents(GateCopy, unittest.TestCase):
         self.body("f'<div class=\"article-body\" style=\"display:none;display:block\">\\n{blocks}\\n</div>\\n'")
         self.assert_gate_passes()
 
+    def style(self, css: str) -> None:
+        self.body("f'<div class=\"article-body\" style=\"" + css + "\">\\n{blocks}\\n</div>\\n'")
+
+    def test_an_important_display_none_beats_a_later_block(self):
+        self.style("display:none !important;display:block")
+        self.assert_gate_fails_with(f"{NEW_GUIDES[0]}.html: the article is hidden")
+
+    def test_an_important_visibility_hidden_beats_a_later_visible(self):
+        self.style("visibility:hidden!important;visibility:visible")
+        self.assert_gate_fails_with(f"{NEW_GUIDES[0]}.html: the article is hidden")
+
+    def test_an_unknown_display_value_is_not_visible(self):
+        self.style("display:none;display:garbage")
+        self.assert_gate_fails_with(f"{NEW_GUIDES[0]}.html: the article is hidden")
+
+    def test_an_unknown_visibility_value_is_not_visible(self):
+        self.style("visibility:hidden;visibility:garbage")
+        self.assert_gate_fails_with(f"{NEW_GUIDES[0]}.html: the article is hidden")
+
+    def test_an_important_display_block_beats_a_later_none(self):
+        self.style("display:block !important;display:none")
+        self.assert_gate_passes()
+
 
 class InstantDeliveryWording(GateCopy, unittest.TestCase):
     """Every way of saying a completion reaches the partner at once needs the
@@ -340,6 +363,31 @@ class MeasureModuleStrings(GateCopy, unittest.TestCase):
     def test_a_hex_escaped_banned_word_fails(self):
         self.code("const NOTE = 'chall\\x65nge';")
         self.assert_gate_fails_with("measure.js: banned phrase 'challenge'")
+
+    def assert_clean_failure(self, message: str) -> None:
+        """The gate fails with its own message, not a crash."""
+        gate = self.build_and_gate()
+        self.assertNotIn("Traceback", gate.stdout + gate.stderr)
+        self.assertEqual(gate.returncode, 1, gate.stdout)
+        self.assertIn(message, gate.stdout)
+
+    def test_a_code_point_past_the_unicode_range_fails_cleanly(self):
+        self.code("const NOTE = '\\u{110000}';")
+        self.assert_clean_failure("measure.js: invalid escape")
+
+    def test_a_malformed_braced_escape_fails_cleanly(self):
+        self.code("const NOTE = '\\u{zz}';")
+        self.assert_clean_failure("measure.js: invalid escape")
+
+    def test_a_short_hex_escape_fails_cleanly(self):
+        self.code("const NOTE = '\\x4';")
+        self.assert_clean_failure("measure.js: invalid escape")
+
+    def test_a_raw_template_with_such_an_escape_is_code_and_passes(self):
+        self.code("const NOTE = String.raw`\\u{110000}`;")
+        gate = self.build_and_gate()
+        self.assertNotIn("Traceback", gate.stdout + gate.stderr)
+        self.assertEqual(gate.returncode, 0, gate.stdout + gate.stderr)
 
 if __name__ == "__main__":
     unittest.main()
