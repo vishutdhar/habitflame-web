@@ -1215,10 +1215,12 @@ hygiene_files = {
     "scripts/build-pages.py": GEN_PATH.read_text(encoding="utf-8"),
     "scripts/verify-pages.py": pathlib.Path(__file__).read_text(encoding="utf-8"),
     "vercel.json": (ROOT / "vercel.json").read_text(encoding="utf-8"),
-    # The invite page's source and its stylesheet are hand written; the share
-    # card source, the tests and the design notes ship in the repository.
+    # The invite page's source, its stylesheet and the measurement module are
+    # hand written; the share card source, the tests and the design notes
+    # ship in the repository.
     "scripts/invite.html": (ROOT / "scripts" / "invite.html").read_text(encoding="utf-8"),
     "styles.css": (ROOT / "styles.css").read_text(encoding="utf-8"),
+    "measure.js": MEASURE_TEXT,
     "scripts/og.html": (ROOT / "scripts" / "og.html").read_text(encoding="utf-8"),
 }
 for _test in sorted((ROOT / "scripts" / "tests").glob("*")):
