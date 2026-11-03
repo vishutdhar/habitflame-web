@@ -18,6 +18,7 @@ import datetime
 import hashlib
 import html as htmlmod
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -422,7 +423,35 @@ except OSError:
 ignore_rules = [l.strip() for l in vercelignore if l.strip() and not l.strip().startswith("#")]
 # The generator's sources and the design notes in docs/ are not part of the site.
 check(ignore_rules == ["/scripts/", "/docs/"], f".vercelignore: rules are {ignore_rules}, want exactly ['/scripts/', '/docs/'] so nothing the site needs is left out")
-for f in sorted(ROOT.rglob("*.html")):
+# Only what git would deploy counts: a file git ignores (a local tool's
+# folder, an editor's scratch) never reaches Vercel, which deploys from git.
+# A copy of the repository without .git (the gate's own tests) has nothing
+# ignored, so there every file outside a dot folder counts.
+def deployable_files() -> list[pathlib.Path]:
+    """Every file git would deploy: tracked or untracked and not ignored.
+    Git answers only when the site root is itself the repository's top
+    level; a copy below another repository (the gate tests' temp folder)
+    would inherit that repository's ignore rules, so it takes the fallback."""
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
+            capture_output=True, check=True,
+        ).stdout
+        # Filesystem identity, not spelling: this Mac treats two casings as one folder.
+        if not os.path.samefile(os.fsdecode(top.strip()), ROOT):
+            raise subprocess.CalledProcessError(1, "git rev-parse")
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return sorted(f for f in ROOT.rglob("*") if f.is_file() and not any(part.startswith(".") for part in f.relative_to(ROOT).parts))
+    # Raw file name bytes: a name that is not UTF-8 is still a file.
+    return sorted(ROOT / os.fsdecode(rel) for rel in out.split(b"\0") if rel)
+
+for f in deployable_files():
+    if f.suffix != ".html":
+        continue
     rel_f = f.relative_to(ROOT)
     if rel_f.parts[0] in NOT_DEPLOYED or len(rel_f.parts) == 1:
         continue

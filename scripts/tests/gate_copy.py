@@ -5,6 +5,7 @@ it, so a gate rule is shown failing by breaking the copy's generator,
 template, config or measure.js, rebuilding, and running the copy's gate.
 The copy lives in a temporary folder removed after each test.
 """
+import os
 import pathlib
 import re
 import shutil
@@ -15,13 +16,42 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+def _ignored_by_git(root: pathlib.Path) -> set[str]:
+    """The top level entries git ignores in the real repository (its own
+    folder, the Vercel folder, local tools' scratch): none of them is part
+    of the site, and a copy without .git would otherwise count them."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return set()
+    # Top level folders only: "scripts/__pycache__/" is a cache inside a
+    # folder the site needs, not an ignored top level entry.
+    names = (os.fsdecode(rel) for rel in out.split(b"\0") if rel)
+    return {rel[:-1] for rel in names if rel.endswith("/") and rel.count("/") == 1}
+
+
+_IGNORED = _ignored_by_git(ROOT) | {".git", ".vercel", "node_modules", "__pycache__"}
+
+
+def _not_site(folder: str, names: list[str]) -> set[str]:
+    """What a copy leaves out: the repository's own folder, dependencies,
+    Python caches, and whatever git ignores at the top level (.vercel, a
+    local tool's scratch). .well-known and every dot file stay."""
+    if pathlib.Path(folder) != ROOT:
+        return {n for n in names if n in ("node_modules", "__pycache__")}
+    return {n for n in names if n in _IGNORED}
+
+
 class GateCopy:
     """A mixin for unittest.TestCase: a fresh copy of the repository per test."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory(prefix="habitflame-web-gate-")
         self.site = pathlib.Path(self._tmp.name) / "site"
-        shutil.copytree(ROOT, self.site, ignore=shutil.ignore_patterns(".git", ".vercel", "node_modules", "__pycache__"))
+        shutil.copytree(ROOT, self.site, ignore=_not_site)
 
     def tearDown(self):
         self._tmp.cleanup()
