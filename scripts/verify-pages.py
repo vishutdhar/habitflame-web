@@ -18,6 +18,7 @@ import datetime
 import hashlib
 import html as htmlmod
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -427,15 +428,25 @@ check(ignore_rules == ["/scripts/", "/docs/"], f".vercelignore: rules are {ignor
 # A copy of the repository without .git (the gate's own tests) has nothing
 # ignored, so there every file outside a dot folder counts.
 def deployable_files() -> list[pathlib.Path]:
-    """Every file git would deploy: tracked or untracked and not ignored."""
+    """Every file git would deploy: tracked or untracked and not ignored.
+    Git answers only when the site root is itself the repository's top
+    level; a copy below another repository (the gate tests' temp folder)
+    would inherit that repository's ignore rules, so it takes the fallback."""
     try:
+        top = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
+            capture_output=True, check=True,
+        ).stdout
+        if pathlib.Path(os.fsdecode(top.strip())).resolve() != ROOT.resolve():
+            raise subprocess.CalledProcessError(1, "git rev-parse")
         out = subprocess.run(
             ["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
             capture_output=True, check=True,
         ).stdout
     except (OSError, subprocess.CalledProcessError):
         return sorted(f for f in ROOT.rglob("*") if f.is_file() and not any(part.startswith(".") for part in f.relative_to(ROOT).parts))
-    return sorted(ROOT / rel for rel in out.decode().split("\0") if rel)
+    # Raw file name bytes: a name that is not UTF-8 is still a file.
+    return sorted(ROOT / os.fsdecode(rel) for rel in out.split(b"\0") if rel)
 
 for f in deployable_files():
     if f.suffix != ".html":

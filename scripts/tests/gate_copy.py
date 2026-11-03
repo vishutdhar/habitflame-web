@@ -5,6 +5,7 @@ it, so a gate rule is shown failing by breaking the copy's generator,
 template, config or measure.js, rebuilding, and running the copy's gate.
 The copy lives in a temporary folder removed after each test.
 """
+import os
 import pathlib
 import re
 import shutil
@@ -28,7 +29,8 @@ def _ignored_by_git(root: pathlib.Path) -> set[str]:
         return set()
     # Top level folders only: "scripts/__pycache__/" is a cache inside a
     # folder the site needs, not an ignored top level entry.
-    return {rel[:-1] for rel in out.decode().split("\0") if rel.endswith("/") and rel.count("/") == 1}
+    names = (os.fsdecode(rel) for rel in out.split(b"\0") if rel)
+    return {rel[:-1] for rel in names if rel.endswith("/") and rel.count("/") == 1}
 
 
 _IGNORED = _ignored_by_git(ROOT) | {".git", ".vercel", "node_modules", "__pycache__"}

@@ -38,3 +38,16 @@ class DeployableScan(GateCopy, unittest.TestCase):
         (scratch / "page.html").write_text("<p>ignored</p>\n", encoding="utf-8")
         gate = self.run_script("verify-pages.py")
         self.assertEqual(gate.returncode, 0, gate.stdout + gate.stderr)
+
+
+class CopyBelowAnotherRepository(GateCopy, unittest.TestCase):
+    def test_a_copy_inside_an_ignored_folder_of_a_parent_repository_still_scans(self):
+        parent = self.site.parent
+        subprocess.run(["git", "init", "-q", str(parent)], check=True)
+        (parent / ".gitignore").write_text("/site/\n", encoding="utf-8")
+        nested = self.site / "extra"
+        nested.mkdir()
+        (nested / "page.html").write_text("<p>nested</p>\n", encoding="utf-8")
+        gate = self.run_script("verify-pages.py")
+        self.assertNotEqual(gate.returncode, 0)
+        self.assertIn("extra/page.html: an HTML file below the root would be served", gate.stdout)
