@@ -15,13 +15,26 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+def _not_site(folder: str, names: list[str]) -> set[str]:
+    """What a copy leaves out: dot folders (git, Vercel, local tools' scratch,
+    none of them part of the site; dot files such as .vercelignore stay),
+    dependencies and Python caches."""
+    skipped = set()
+    for name in names:
+        if name in ("node_modules", "__pycache__"):
+            skipped.add(name)
+        elif name.startswith(".") and (pathlib.Path(folder) / name).is_dir():
+            skipped.add(name)
+    return skipped
+
+
 class GateCopy:
     """A mixin for unittest.TestCase: a fresh copy of the repository per test."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory(prefix="habitflame-web-gate-")
         self.site = pathlib.Path(self._tmp.name) / "site"
-        shutil.copytree(ROOT, self.site, ignore=shutil.ignore_patterns(".git", ".vercel", "node_modules", "__pycache__"))
+        shutil.copytree(ROOT, self.site, ignore=_not_site)
 
     def tearDown(self):
         self._tmp.cleanup()
