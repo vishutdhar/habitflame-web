@@ -15,17 +15,32 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+def _ignored_by_git(root: pathlib.Path) -> set[str]:
+    """The top level entries git ignores in the real repository (its own
+    folder, the Vercel folder, local tools' scratch): none of them is part
+    of the site, and a copy without .git would otherwise count them."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return set()
+    # Top level folders only: "scripts/__pycache__/" is a cache inside a
+    # folder the site needs, not an ignored top level entry.
+    return {rel[:-1] for rel in out.decode().split("\0") if rel.endswith("/") and rel.count("/") == 1}
+
+
+_IGNORED = _ignored_by_git(ROOT) | {".git", ".vercel", "node_modules", "__pycache__"}
+
+
 def _not_site(folder: str, names: list[str]) -> set[str]:
-    """What a copy leaves out: dot folders (git, Vercel, local tools' scratch,
-    none of them part of the site; dot files such as .vercelignore stay),
-    dependencies and Python caches."""
-    skipped = set()
-    for name in names:
-        if name in ("node_modules", "__pycache__"):
-            skipped.add(name)
-        elif name.startswith(".") and (pathlib.Path(folder) / name).is_dir():
-            skipped.add(name)
-    return skipped
+    """What a copy leaves out: the repository's own folder, dependencies,
+    Python caches, and whatever git ignores at the top level (.vercel, a
+    local tool's scratch). .well-known and every dot file stay."""
+    if pathlib.Path(folder) != ROOT:
+        return {n for n in names if n in ("node_modules", "__pycache__")}
+    return {n for n in names if n in _IGNORED}
 
 
 class GateCopy:
