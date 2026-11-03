@@ -437,7 +437,8 @@ def deployable_files() -> list[pathlib.Path]:
             ["git", "-C", str(ROOT), "rev-parse", "--show-toplevel"],
             capture_output=True, check=True,
         ).stdout
-        if pathlib.Path(os.fsdecode(top.strip())).resolve() != ROOT.resolve():
+        # Filesystem identity, not spelling: this Mac treats two casings as one folder.
+        if not os.path.samefile(os.fsdecode(top.strip()), ROOT):
             raise subprocess.CalledProcessError(1, "git rev-parse")
         out = subprocess.run(
             ["git", "-C", str(ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
