@@ -56,7 +56,7 @@
   --cols: minmax(0, 7fr) minmax(0, 5fr);
   --split: minmax(0, 5fr) minmax(0, 7fr);
   --col-gap: 64px;
-  --phone-shot: clamp(240px, 215px + 6.63vw, 300px);
+  --phone-shot: clamp(264px, 226px + 8.5vw, 348px);
 }
 
 *,
@@ -344,63 +344,43 @@ dt {
   padding-block: 24px 72px;
 }
 
-/* The hero is one scene in three planes: the app's year grid behind, the
-   Partners screen, and Jordan's reaction lifted out of that screen toward
-   the reader. All three stand on the hero's bottom hairline: the
-   perspective origin and every transform origin sit on it, and the scene is
-   clipped there. The script sets --p, the scroll position through the hero
-   (0 at the top, 1 at the rest pose), and --tx and --ty, the pointer tilt.
-   Sizes inside the screen are shares of the screenshot, so the lifted row
-   matches its slot to the pixel. */
+/* The hero shows the exchange the app is for: the Partners screen, upright,
+   standing on the hero's hairline over the app's year grid, with Jordan's
+   reaction lifted off the glass and enlarged. The lift is the treatment of
+   the App Store slides: real pixels of the same screenshot, larger than the
+   screen shows them, with an ember rim, always over its own place so the
+   row never shows twice. Sizes inside the screen are shares of the
+   screenshot, so the lifted row matches its place to the pixel. */
 .hero-shot {
   --shot: var(--phone-shot);
-  --screen: calc(var(--shot) - 16px);
-  --card-r: calc(var(--screen) * 0.0578);
-  --headroom: 136px;
-  --eye-x: calc(100% - var(--shot) / 2);
-  --scene-eye-x: calc(100% - 16px - var(--shot) / 2);
+  --screen: calc(var(--shot) - 20px);
+  --gain: 1.3;
   position: relative;
   display: grid;
   align-self: end;
   container-type: inline-size;
 }
 
-/* The scene clips on every side: at the hairline below, and 16px out into
-   the gutter at the sides and the headroom above, so a tilted edge is never
-   cut and nothing in the scene can widen the page. */
+/* The scene clips at the hairline below, so the phone can rise out of it;
+   the lift may reach past the phone at the sides. */
 .scene {
-  --p: 0;
-  --tx: 0deg;
-  --ty: 0deg;
-  margin: calc(-1 * var(--headroom)) -16px 0;
-  padding: var(--headroom) 16px 0;
-  perspective: 1100px;
-  perspective-origin: var(--scene-eye-x) 100%;
-  overflow: clip;
-}
-
-.stage {
   position: relative;
   display: grid;
   justify-items: end;
-  transform-style: preserve-3d;
-  transform-origin: var(--eye-x) 100%;
-  transform: rotateX(var(--tx)) rotateY(var(--ty));
+  padding-top: 24px;
+  overflow-x: visible;
+  overflow-y: clip;
 }
 
-/* Back plane: the app's year grid (YearGridView), one band per habit, a
-   column per week and a row per day, cells and gaps in the app's 12 to 3
+/* Behind the phone: the app's year grid (YearGridView), one band per habit,
+   a column per week and a row per day, cells and gaps in the app's 12 to 3
    ratio. 20 weeks span the column: 20 cells and 19 gaps of a quarter cell
-   make 24.75 cells. It sits 180px behind the phone and is scaled back up by
-   (1100 + 180) / 1100, so it still spans the column. */
+   make 24.75 cells. */
 .field {
   position: absolute;
   inset: auto 0 0;
   display: grid;
   row-gap: calc(100cqi / 24.75);
-  transform-origin: var(--eye-x) 100%;
-  transform: translate3d(0, calc(28px * var(--p)), -180px) scale(1.1636);
-  will-change: transform;
 }
 
 .habit {
@@ -460,29 +440,24 @@ dt {
   outline-offset: -1px;
 }
 
-/* Subject plane: the phone, turned toward the copy and leaning back; it
-   straightens as the hero scrolls away. */
+/* The phone: upright, its bottom edge is the hairline. A pool of ground
+   behind it keeps the grid from crowding the bezel. */
 .phone {
   position: relative;
   width: var(--shot);
-  transform-style: preserve-3d;
-  transform-origin: 50% 100%;
-  transform: rotateY(calc(18deg - 14deg * var(--p))) rotateX(calc(8deg - 7deg * var(--p)));
-  box-shadow: -28px 20px 44px rgba(0, 0, 0, 0.85);
-  will-change: transform;
+  box-shadow: 0 0 56px 24px var(--ground);
 }
 
 .device {
-  padding: 7px 7px 0;
-  border: 1px solid var(--line);
+  padding: 9px 9px 0;
+  border: 1px solid var(--line-strong);
   border-bottom: 0;
-  border-radius: calc(var(--screen) * 0.125 + 8px) calc(var(--screen) * 0.125 + 8px) 0 0;
+  border-radius: calc(var(--screen) * 0.125 + 10px) calc(var(--screen) * 0.125 + 10px) 0 0;
   background: var(--surface-2);
 }
 
 .screen {
   position: relative;
-  transform-style: preserve-3d;
 }
 
 .screen > img {
@@ -490,56 +465,38 @@ dt {
   border-radius: calc(var(--screen) * 0.125) calc(var(--screen) * 0.125) 0 0;
 }
 
-/* "Jordan sent a flame for Morning Run": x 41 to 859 and y 575 to 716 of
-   the 900 by 1211 screenshot. The socket is the slot it leaves in the list;
-   the lift is the row itself, cut from the same image. */
-.socket,
+/* "Jordan sent a flame for Morning Run": x 56 to 1264 and y 1361 to 1572
+   of the 1320 by 2112 screenshot. The lift grows from its right edge, so
+   it reaches out of the phone toward the copy and still covers the row. */
 .lift {
   position: absolute;
-  top: 47.481%;
-  left: 4.556%;
-  width: 90.889%;
-  height: 11.643%;
-}
-
-.socket {
-  border-radius: var(--card-r) var(--card-r) 0 0;
-  background: var(--ground);
-}
-
-/* Foreground plane: the row, lifted toward the reader. */
-.lift {
-  transform: translateZ(calc(44px + 16px * var(--p)));
-  will-change: transform;
-}
-
-.lift-card {
-  position: absolute;
-  inset: 0;
+  top: 64.441%;
+  left: 4.242%;
+  width: 91.515%;
+  height: 9.991%;
   overflow: hidden;
-  border-radius: var(--card-r);
-  box-shadow: -8px 16px 24px rgba(0, 0, 0, 0.7);
+  border-radius: calc(var(--screen) * 0.04);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 189, 108, 0.6),
+    0 0 36px rgba(230, 126, 0, 0.34),
+    0 18px 40px rgba(0, 0, 0, 0.8);
+  transform-origin: 100% 50%;
+  transform: scale(var(--gain));
 }
 
-.lift-card > img {
+.lift > img {
   position: absolute;
-  top: -407.8%;
-  left: -5.0122%;
-  width: 110.0244%;
+  top: -645.024%;
+  left: -4.635%;
+  width: 109.272%;
   max-width: none;
-}
-
-.ring {
-  position: absolute;
-  inset: -5px;
-  border: 1.5px solid var(--ember);
-  border-radius: calc(var(--card-r) + 5px);
 }
 
 .callout {
   justify-self: end;
   width: var(--shot);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   color: var(--ember);
   font-size: var(--fs-small);
   font-weight: 700;
@@ -548,54 +505,38 @@ dt {
   order: -1;
 }
 
-/* Wide screens: the label sits left of the phone on a plate of ground, in
-   flat page space so it stays crisp. Its leader belongs to the lifted row,
-   so it stays on the ring in every pose and runs on under the plate. */
+/* Wide screens: the label sits left of the phone, just above the end of the
+   lifted row it names, on a plate of ground so the grid never runs under
+   the words. */
 @media (min-width: 75em) {
   .callout {
     position: absolute;
     z-index: 1;
     right: calc(var(--shot) + 16px);
-    bottom: calc(var(--screen) * 0.6284);
-    width: 10em;
+    bottom: calc(var(--screen) * 0.6 + 20px);
+    width: 9em;
     margin: 0;
-    padding: 8px 0 8px 12px;
+    padding: 6px 0 6px 10px;
     background: var(--ground);
-    /* A solid edge of ground, so the plate's fractional edge never leaves
-       a half covered row of pixels over the grid. */
     box-shadow: 0 0 0 2px var(--ground);
     text-align: right;
-    translate: 0 50%;
-  }
-
-  .ring::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 100%;
-    width: calc(var(--screen) * 0.0456 + 48px);
-    border-top: 1.5px solid var(--ember);
   }
 }
 
-/* The load sequence: the grid settles, the phone rises out of the hairline,
-   the reaction lifts out of its slot and the ring settles round it; the copy
-   appears as the planes land. */
+/* The one load sequence: the grid settles, the phone rises out of the
+   hairline, the reaction lifts off the glass, and the copy appears as they
+   land. Nothing else on the page moves by itself. */
 @media (prefers-reduced-motion: no-preference) {
   .field {
-    animation: field-in 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+    animation: fade-in 0.9s ease-out both;
   }
 
   .phone {
-    animation: rise 1s cubic-bezier(0.2, 0.7, 0.1, 1) 0.1s both;
+    animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) 0.1s both;
   }
 
   .lift {
     animation: lift-out 0.6s cubic-bezier(0.2, 0.7, 0.1, 1) 0.85s both;
-  }
-
-  .ring {
-    animation: ring-in 0.4s ease-out 1.05s both;
   }
 
   .callout {
@@ -619,29 +560,16 @@ dt {
   }
 }
 
-@keyframes field-in {
-  from {
-    opacity: 0;
-    translate: 0 0 -90px;
-  }
-}
-
 @keyframes rise {
   from {
-    translate: 0 30%;
+    translate: 0 24%;
   }
 }
 
 @keyframes lift-out {
   from {
-    translate: 0 0 -44px;
-  }
-}
-
-@keyframes ring-in {
-  from {
-    opacity: 0;
-    scale: 1.06;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 189, 108, 0), 0 0 0 rgba(230, 126, 0, 0), 0 0 0 rgba(0, 0, 0, 0);
   }
 }
 
@@ -658,8 +586,7 @@ dt {
   }
 }
 
-/* Reduced motion: nothing moves, and the scene holds its rest pose with the
-   depth intact. */
+/* Reduced motion: nothing moves, and the hero shows its end state. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -667,12 +594,6 @@ dt {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
-  }
-
-  .scene {
-    --p: 1 !important;
-    --tx: 0deg !important;
-    --ty: 0deg !important;
   }
 }
 
@@ -696,26 +617,6 @@ main > section + section {
   top: 32px;
 }
 
-.rail.features {
-  grid-template-areas:
-    "head rows"
-    "shot rows";
-  grid-template-rows: auto 1fr;
-}
-
-.rail.features .rail-head {
-  position: static;
-  grid-area: head;
-}
-
-.rail.features > .rows {
-  grid-area: rows;
-}
-
-.rail.features > .features-shot {
-  grid-area: shot;
-}
-
 .rows,
 .guides {
   list-style: none;
@@ -724,6 +625,10 @@ main > section + section {
 .rows li,
 .guides li {
   padding-block: 24px;
+}
+
+.guides li {
+  padding-block: 20px;
 }
 
 .rows li:first-child,
@@ -760,115 +665,97 @@ main > section + section {
   font-variant-numeric: tabular-nums;
 }
 
-.features-shot {
-  width: min(280px, 100%);
+/* A piece of an app screen, cut to its card: the same real pixels the hero
+   lifts, set beside the text they illustrate. The app's ground is this
+   page's ground, so a card's own corners need no frame. */
+.piece {
+  display: block;
+  width: min(100%, 26.25rem);
+  height: auto;
+  border-radius: 14px;
+}
+
+.piece.narrow {
+  width: min(100%, 18.75rem);
+}
+
+.steps .piece {
+  margin-top: 20px;
+}
+
+/* Features: the three the app can show stand beside their piece of it, on
+   the page's two columns; the three it cannot show run as text, three
+   across, under the same hairlines. */
+.features > h2 {
+  max-width: 14em;
+}
+
+.shown,
+.more {
+  list-style: none;
+}
+
+.shown {
   margin-top: 40px;
 }
 
-.device.whole {
-  padding: 7px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 40px;
+.shown li {
+  display: grid;
+  grid-template-columns: var(--split);
+  column-gap: var(--col-gap);
+  align-items: center;
+  padding-block: 32px;
+  border-top: 1px solid var(--line);
 }
 
-.device.whole .screen img {
-  border-radius: 33px;
+.shown .piece {
+  grid-area: 1 / 1;
+}
+
+.shown .copy {
+  grid-area: 1 / 2;
+}
+
+.shown p,
+.more p {
+  max-width: var(--measure-body);
+  margin-top: 8px;
+}
+
+.more {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--col-gap);
+  border-top: 1px solid var(--line);
+}
+
+.more li {
+  padding-top: 32px;
+}
+
+/* Pricing: the price is the page's one large number; the two tiers stand
+   side by side, and the paid one carries the ember rim of the lift. */
+.pricing {
+  display: grid;
+  grid-template-columns: var(--split);
+  column-gap: var(--col-gap);
+  align-items: end;
 }
 
 .price-row {
   max-width: none;
-  font-size: var(--fs-h1);
-  line-height: 1.06;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-h2);
+  line-height: 1.1;
 }
 
-/* The price can rise from behind its own baseline: the number moves inside
-   a box that clips at the line. */
 .price {
   display: inline-block;
+  margin-block: 0.02em 0.04em;
+  font-size: clamp(4.5rem, 2.2rem + 9.8vw, 9rem);
   font-variant-numeric: lining-nums tabular-nums;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
 }
-
-.price-num {
-  display: inline-block;
-}
-
-/* Section reveals. Each plays once, when the script adds .in the first time
-   its block is in view, and each answers its content: the pairing steps
-   wipe in along their hairlines, the Today screenshot squares up from its
-   turned pose, the price arrives. The hidden states need the .motion class
-   the script sets, so without the script every section shows as it ends.
-   The animations fill backwards only, so nothing stays clipped after. */
-@media (prefers-reduced-motion: no-preference) {
-  .motion .steps:not(.in) li {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  .motion .steps.in li {
-    animation: wipe 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
-  }
-
-  .motion .steps.in li:nth-child(2) {
-    animation-delay: 0.14s;
-  }
-
-  .motion .steps.in li:nth-child(3) {
-    animation-delay: 0.28s;
-  }
-
-  .motion .features-shot:not(.in) .device {
-    transform: perspective(1200px) rotateY(-16deg) rotateX(10deg);
-  }
-
-  .motion .features-shot.in .device {
-    animation: square-up 1s cubic-bezier(0.2, 0.7, 0.1, 1) backwards;
-  }
-
-  /* The row waits whole, so a half shown sentence never sits on screen;
-     it comes in, then the number rises into it. */
-  .motion .price-row .price {
-    clip-path: inset(0);
-  }
-
-  .motion .price-row:not(.in) {
-    opacity: 0;
-  }
-
-  .motion .price-row.in {
-    animation: fade-in 0.2s ease-out backwards;
-  }
-
-  .motion .price-row.in .price-num {
-    animation: price-up 0.7s cubic-bezier(0.2, 0.7, 0.1, 1) 0.1s backwards;
-  }
-
-  .motion .price-row.in .terms {
-    animation: fade-in 0.4s ease-out 0.55s backwards;
-  }
-}
-
-@keyframes wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  to {
-    clip-path: inset(0);
-  }
-}
-
-@keyframes square-up {
-  from {
-    transform: perspective(1200px) rotateY(-16deg) rotateX(10deg);
-  }
-}
-
-@keyframes price-up {
-  from {
-    translate: 0 110%;
-  }
-}
-
 
 .terms {
   display: block;
@@ -878,19 +765,26 @@ main > section + section {
 
 .tiers {
   display: grid;
-  grid-template-columns: var(--split);
-  column-gap: var(--col-gap);
-  margin-top: 48px;
-  border-top: 1px solid var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
   list-style: none;
 }
 
 .tiers li {
-  padding-top: 24px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+.tiers li:last-child {
+  border-color: transparent;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 189, 108, 0.6),
+    0 0 36px rgba(230, 126, 0, 0.2);
 }
 
 .tiers p {
-  max-width: var(--measure-body);
   margin-top: 8px;
 }
 
@@ -1092,12 +986,8 @@ main > section + section {
 /* ---- Narrow screens --------------------------------------------------- */
 
 @media (max-width: 74.99em) {
-  /* The label moves above the phone, so the scene needs no room over it,
-     and the grid keeps two habits so it stays below the phone's top. */
-  .hero-shot {
-    --headroom: 24px;
-  }
-
+  /* The label moves above the phone, and the grid keeps two habits so it
+     stays below the phone's top. */
   .field .habit:first-child {
     display: none;
   }
@@ -1107,27 +997,46 @@ main > section + section {
   :root {
     --col-gap: 40px;
   }
+
+  .more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .more li + li {
+    margin-top: 32px;
+    border-top: 1px solid var(--line);
+  }
+
+  .pricing {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 40px;
+  }
 }
 
 @media (max-width: 47.99em) {
   .hero,
   .rail,
-  .tiers {
+  .shown li {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .hero-copy {
-    padding-block: 8px 48px;
+    padding-block: 8px 40px;
   }
 
+  /* On a phone the screenshot is centred and the lift grows from its
+     middle, inside the page's gutters. */
   .hero-shot {
-    --shot: min(var(--phone-shot), 60vw);
-    --eye-x: 50%;
-    --scene-eye-x: 50%;
+    --shot: min(var(--phone-shot), 66vw);
+    --gain: 1.22;
   }
 
-  .stage {
+  .scene {
     justify-items: center;
+  }
+
+  .lift {
+    transform-origin: 50% 50%;
   }
 
   .callout {
@@ -1139,28 +1048,23 @@ main > section + section {
     position: static;
   }
 
-  .rail.features {
-    grid-template-areas:
-      "head"
-      "rows"
-      "shot";
-    grid-template-rows: none;
-  }
-
   .rail > .rows,
   .rail > .guides,
   .rail > dl {
     margin-top: 32px;
   }
 
-  .features-shot {
-    width: min(60vw, 280px);
-    margin-inline: auto;
+  .shown li {
+    row-gap: 20px;
   }
 
-  .tiers li + li {
-    margin-top: 16px;
-    border-top: 1px solid var(--line);
+  .shown .piece,
+  .shown .copy {
+    grid-area: auto;
+  }
+
+  .tiers {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .compare {

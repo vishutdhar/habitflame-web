@@ -168,71 +168,6 @@ def year_grid(first_week: int, streak: int, rate: float, seed: int) -> str:
     return "".join(marks)
 
 
-# The landing's motion: one time section reveals, the hero's scroll pose and,
-# on a fine pointer, its tilt. With reduced motion it does nothing, so the
-# page keeps the final state the stylesheet gives it. Layout is read on load
-# and resize only; scroll and pointer handlers are passive and only queue a
-# frame, and the frame loop stops once the tilt has settled. The tilt is
-# aimed each frame from the last pointer position and the current scroll, so
-# a still pointer over a moving page keeps it true, and past the hero it
-# settles to flat.
-MOTION_SCRIPT = """<script>
-(function () {
-  if (!window.matchMedia || matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
-  document.documentElement.classList.add("motion");
-  var seen = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (!entry.isIntersecting) return;
-      entry.target.classList.add("in");
-      seen.unobserve(entry.target);
-    });
-  }, { rootMargin: "0px 0px -12% 0px" });
-  Array.prototype.forEach.call(document.querySelectorAll(".reveal"), function (el) { seen.observe(el); });
-
-  var scene = document.querySelector(".scene");
-  if (!scene) return;
-  var end = 1, midX = 0, midY = 0, tx = 0, ty = 0, pointer = null, frame = 0;
-  function measure() {
-    var box = scene.getBoundingClientRect();
-    end = Math.max(1, (box.bottom + scrollY) * 0.85);
-    midX = box.left + box.width / 2;
-    midY = box.top + scrollY + box.height / 2;
-  }
-  function clamp(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
-  function draw() {
-    frame = 0;
-    var aimX = 0, aimY = 0;
-    if (pointer && scrollY <= end) {
-      aimY = clamp((pointer.x - midX) / (innerWidth / 2)) * 6;
-      aimX = clamp((midY - scrollY - pointer.y) / (innerHeight / 2)) * 4;
-    }
-    tx += (aimX - tx) * 0.1;
-    ty += (aimY - ty) * 0.1;
-    if (Math.abs(aimX - tx) < 0.01 && Math.abs(aimY - ty) < 0.01) {
-      tx = aimX;
-      ty = aimY;
-    } else {
-      frame = requestAnimationFrame(draw);
-    }
-    scene.style.setProperty("--p", Math.min(1, scrollY / end).toFixed(4));
-    scene.style.setProperty("--tx", tx.toFixed(3) + "deg");
-    scene.style.setProperty("--ty", ty.toFixed(3) + "deg");
-  }
-  function queue() { if (!frame) frame = requestAnimationFrame(draw); }
-  measure();
-  draw();
-  addEventListener("scroll", queue, { passive: true });
-  addEventListener("resize", function () { measure(); queue(); }, { passive: true });
-  addEventListener("load", function () { measure(); queue(); });
-  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-  document.addEventListener("pointermove", function (e) {
-    pointer = { x: e.clientX, y: e.clientY };
-    queue();
-  }, { passive: true });
-})();
-</script>"""
-
-
 def esc(text: str) -> str:
     """Escape text for an HTML text node or a double quoted attribute."""
     return html.escape(text, quote=True)
@@ -424,10 +359,30 @@ def faq_list(entries: list[dict]) -> str:
 
 # ---- Landing -----------------------------------------------------------------
 
-# The phone shot widths, matching --phone-shot in site.css: 60% of the
-# screen on a phone, 300px from a laptop up.
-HERO_SIZES = "(max-width: 47.99em) min(60vw, 300px), 300px"
-FEATURE_SIZES = "(max-width: 47.99em) min(60vw, 280px), 280px"
+# The phone shot widths, matching --phone-shot in site.css: 66% of the
+# screen on a phone, up to 348px from a laptop up.
+HERO_SIZES = "(max-width: 47.99em) min(66vw, 348px), 348px"
+
+
+def piece(spec: dict) -> str:
+    """One piece of an app screen, cut to its card from a 4.6.0 capture: a
+    single file 840 pixels wide, shown at half that or less."""
+    cls = "piece " + spec["class"] if spec.get("class") else "piece"
+    return (
+        f'<img class="{esc(cls)}" src="{esc(BASE)}/assets/shots/{esc(spec["stem"])}-840.webp" '
+        f'width="840" height="{int(spec["height"])}" alt="{esc(spec["alt"])}" loading="lazy" decoding="async">'
+    )
+
+
+def piece_rows(items: list, pieces: list, tag: str, cls: str) -> str:
+    """Rows that each show their own piece of the app beside the text."""
+    if len(items) != len(pieces):
+        raise ValueError(f"{cls}: {len(items)} rows but {len(pieces)} pieces")
+    lis = "\n".join(
+        f'<li><div class="copy"><h3>{esc(title)}</h3>\n<p>{rich(body)}</p></div>\n{piece(spec)}</li>'
+        for (title, body), spec in zip(items, pieces)
+    )
+    return f'<{tag} class="{cls}">\n{lis}\n</{tag}>'
 
 
 def rail(cls: str, head: str, body: str, section_id: str = "") -> str:
@@ -440,8 +395,9 @@ def rail(cls: str, head: str, body: str, section_id: str = "") -> str:
 def landing_main() -> str:
     hero, pairing, features, pricing = LANDING["hero_shot"], LANDING["pairing"], LANDING["features"], LANDING["pricing"]
     price = esc(FACTS["price"])
-    price_heading = (esc(pricing["heading"]).replace(price, f'<span class="price"><span class="price-num">{price}</span></span>')
+    price_heading = (esc(pricing["heading"]).replace(price, f'<span class="price">{price}</span>')
                      + f' <span class="terms">{esc(pricing["terms"])}</span>')
+    shown = len(features["pieces"])
     parts = [
         '<section class="hero">\n'
         '<div class="hero-copy">\n'
@@ -450,35 +406,35 @@ def landing_main() -> str:
         f"{actions(None, 'hero')}\n"
         f'<p class="store-note">{esc(LANDING["store_note"])}</p>\n'
         "</div>\n"
-        # One scene in three planes: the year grid, the phone, and the
-        # partner's reaction lifted out of the screen (see site.css).
+        # The Partners screen upright, standing on the hero's hairline over
+        # the year grid, with the partner's reaction lifted off the glass
+        # and enlarged, as the App Store slides lift a piece (see site.css).
         '<figure class="hero-shot">\n'
-        '<div class="scene">\n<div class="stage">\n'
+        '<div class="scene">\n'
         f"{field()}\n"
         '<div class="device phone"><div class="screen">'
         f"{shot(hero, HERO_SIZES, eager=True)}"
-        '<span class="socket"></span>'
-        '<div class="lift" aria-hidden="true"><div class="lift-card">'
+        '<div class="lift" aria-hidden="true">'
         f"{shot(hero, HERO_SIZES, eager=True, cutout=True)}"
-        '</div><span class="ring"></span></div>'
+        "</div>"
         "</div></div>\n"
-        "</div>\n</div>\n"
+        "</div>\n"
         f'<figcaption class="callout">{esc(LANDING["callout"])}</figcaption>\n'
         "</figure>\n"
         "</section>",
         rail("pairing",
              f"<h2>{esc(pairing['heading'])}</h2>\n"
              f'<p class="section-intro">{rich(pairing["intro"])}</p>',
-             rows(pairing["steps"], "ol", "rows steps reveal")),
-        # The screenshot is its own grid item: under the heading in the rail
-        # on wide screens, after the rows on a phone.
-        rail("features",
-             f"<h2>{esc(features['heading'])}</h2>",
-             f'{rows(features["items"])}\n'
-             f'<figure class="features-shot reveal"><div class="device whole"><div class="screen">'
-             f'{shot(features["shot"], FEATURE_SIZES, eager=False)}</div></div></figure>'),
+             piece_rows(pairing["steps"], pairing["pieces"], "ol", "rows steps")),
+        # The first features each show their piece of the app; the rest are
+        # text, three across.
+        '<section class="features">\n'
+        f"<h2>{esc(features['heading'])}</h2>\n"
+        f'{piece_rows(features["items"][:shown], features["pieces"], "ul", "shown")}\n'
+        f'{rows(features["items"][shown:], "ul", "more")}\n'
+        "</section>",
         '<section class="pricing">\n'
-        f'<h2 class="price-row reveal">{price_heading}</h2>\n'
+        f'<h2 class="price-row">{price_heading}</h2>\n'
         f'{rows(pricing["tiers"], "ul", "tiers")}\n'
         "</section>",
         rail("guides-list",
@@ -492,7 +448,6 @@ def landing_main() -> str:
         f"{actions(None, 'cta')}\n"
         "</section>",
         SHARE_SCRIPT,
-        MOTION_SCRIPT,
     ]
     return "\n".join(parts)
 

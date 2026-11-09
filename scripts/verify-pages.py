@@ -989,7 +989,7 @@ for page, rel in HTML_PAGES:
                 "applicationCategory": "HealthApplication",
                 "url": PINNED_APP_STORE_URL,
                 "image": f"{PINNED_BASE_URL}/app-icon.png",
-                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-10-16-900.webp",
+                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-11-09-900.webp",
                 "publisher": {"@type": "Organization", "name": "Freedom Terminal", "url": BRAND_URL},
                 "offers": {
                     "@type": "Offer", "price": "0", "priceCurrency": "USD",
@@ -1000,7 +1000,7 @@ for page, rel in HTML_PAGES:
             }
             check(g == want_app, f"{rel}: SoftwareApplication differs from the pinned node: "
                   f"{sorted(k for k in set(g) | set(want_app) if g.get(k) != want_app.get(k))}")
-            for _asset in ("app-icon.png", "assets/shots/partners-2026-10-16-900.webp"):
+            for _asset in ("app-icon.png", "assets/shots/partners-2026-11-09-900.webp"):
                 check((ROOT / _asset).is_file(), f"{rel}: structured data names {_asset}, which is missing")
 
     # g. Word counts.
