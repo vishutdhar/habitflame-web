@@ -989,7 +989,7 @@ for page, rel in HTML_PAGES:
                 "applicationCategory": "HealthApplication",
                 "url": PINNED_APP_STORE_URL,
                 "image": f"{PINNED_BASE_URL}/app-icon.png",
-                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-10-16-900.webp",
+                "screenshot": f"{PINNED_BASE_URL}/assets/shots/partners-2026-11-09-900.webp",
                 "publisher": {"@type": "Organization", "name": "Freedom Terminal", "url": BRAND_URL},
                 "offers": {
                     "@type": "Offer", "price": "0", "priceCurrency": "USD",
@@ -1000,7 +1000,7 @@ for page, rel in HTML_PAGES:
             }
             check(g == want_app, f"{rel}: SoftwareApplication differs from the pinned node: "
                   f"{sorted(k for k in set(g) | set(want_app) if g.get(k) != want_app.get(k))}")
-            for _asset in ("app-icon.png", "assets/shots/partners-2026-10-16-900.webp"):
+            for _asset in ("app-icon.png", "assets/shots/partners-2026-11-09-900.webp"):
                 check((ROOT / _asset).is_file(), f"{rel}: structured data names {_asset}, which is missing")
 
     # g. Word counts.
@@ -1966,6 +1966,193 @@ check(support_emails == {SITE["contact_email"]}, f"support.html: email addresses
 
 policy_emails = emails_in(POLICY)
 check(policy_emails == {SITE["contact_email"]}, f"privacy-policy.html: email addresses {sorted(policy_emails)}")
+
+# The landing's screenshots. Which piece of the app stands beside each
+# pairing step and each shown feature is pinned here with the row's own
+# heading and the opening of its paragraph, outside pages.json, so an
+# emptied, moved or reordered list cannot drop an image or set it beside
+# another row's words; no stylesheet rule may hide the elements that carry
+# them (by display, visibility, zero opacity or zero size). Every file an
+# <img> names, in src or srcset, is a file in assets/shots whose bytes are
+# pinned, and its alt text is the pinned description of that picture; the hero's
+# srcset is exactly its two sizes and no other image has one; and the width
+# and height attributes are the src file's real size, so the page reserves
+# the right space before the image loads.
+PINNED_SHOT_DIR = "/assets/shots/"
+PINNED_HERO_SHOT = "partners-2026-11-09"
+# The caption names the row the hero lifts out of that screenshot
+PINNED_HERO_CALLOUT = "Jordan reacted to your Morning Run."
+# (heading, how the row's paragraph begins, image file, image class)
+PINNED_STEP_PIECES = [("Send one invite link", "Open the Partners tab and send an invite link", "pair-connected-2026-11-09-840.webp", "piece"),
+                      ("Check in as usual", "With Premium, each shared habit you complete in the app for today is sent", "pair-completed-2026-11-09-840.webp", "piece"),
+                      ("Hear back from them", "They can react with a flame", "pair-nudge-2026-11-09-840.webp", "piece")]
+PINNED_FEATURE_PIECES = [("Track any habit your way", "Yes or no, a count, a duration", "today-progress-2026-11-09-840.webp", "piece"),
+                         ("Keep the streak alive", "See your current and longest streak", "celebration-card-2026-11-09-840.webp", "piece narrow"),
+                         ("See the whole year", "The Stats tab lays out the last year", "year-grid-2026-11-09-840.webp", "piece")]
+PINNED_TEXT_FEATURES = [("Focus with a built-in timer", "A Pomodoro timer runs"), ("Get reminders that change", "Set a reminder time per habit"),
+                        ("Glance from the home screen", "Interactive widgets show")]
+# The classes that carry a landing screenshot or hold one. No rule of the
+# stylesheet whose selector names one of them may take the element off the page.
+SHOT_CLASSES = ("piece", "lift", "shown", "steps", "hero-shot", "scene", "phone", "device", "screen", "copy")
+ZERO_HIDES = {"opacity", "width", "height", "max-width", "max-height"}
+
+
+def hides(body: str) -> bool:
+    """Whether a rule's declarations take its element off the page in one of
+    the plain ways: display none, visibility hidden or collapse,
+    content-visibility hidden, or an opacity or a size that is zero however
+    it is written (0, 0.0, 0px, .0em, 0%)."""
+    for decl in body.split(";"):
+        prop, _, value = decl.partition(":")
+        prop, value = prop.strip().lower(), re.sub(r"!\s*important", "", value, flags=re.I).strip().lower()
+        if (prop, value) in {("display", "none"), ("visibility", "hidden"), ("visibility", "collapse"), ("content-visibility", "hidden")}:
+            return True
+        # The number the value starts with; whatever follows is its unit,
+        # however that is spelled (px, %, an escaped letter)
+        m = re.match(r"[+-]?(\d*\.?\d+)(?![\d.])", value)
+        if prop in ZERO_HIDES and m and float(m.group(1)) == 0:
+            return True
+    return False
+
+
+# Every landing screenshot file, pinned by its SHA-256. A published asset is
+# cached for a year, so its bytes never change under its name (a new picture
+# takes a new dated name and a new line here), and a file that matches its
+# pin is the whole file that was looked at and decoded when it was added.
+PINNED_SHOT_SHA256 = {
+    "celebration-card-2026-11-09-840.webp": "fd740cff2f9b4cd17e31bfc3056073f0cf19f7631a0a117a841ae32d3df13c20",
+    "pair-completed-2026-11-09-840.webp": "aea64f5faf38f27a3550741986e7c69aef99e6a89b91b475c2625b83da9d29ae",
+    "pair-connected-2026-11-09-840.webp": "77d693fb918c3905eb0267b054276c615f9b9b0abf1bcf53827c515ee886d64b",
+    "pair-nudge-2026-11-09-840.webp": "36531ea570132253b525e646948d9485ab69597703d30df63edf1202da0bb5ee",
+    "partners-2026-11-09-600.webp": "cd54483a4d24d1bb5a6cd06ee6433c3ec36a027cd1ae98be5da83bfe9426c0cc",
+    "partners-2026-11-09-900.webp": "f13deb05817b2d61dd492d5b9cc23b96f76060fd705da7c0cfe84a17f0531d5d",
+    "today-progress-2026-11-09-840.webp": "f68521784d4eadfa048bb5166a30790229bdb8b0bfacd08691726de35c6b2d00",
+    "year-grid-2026-11-09-840.webp": "d4df20709f08b7287296b5dd2e614b19a9cdb9243deb22048db209be8c9ded62",
+}
+# What each screenshot shows, word for word, checked against the picture
+# when it was added: the alt text cannot move to another picture.
+PINNED_SHOT_ALT = {
+    "pair-connected-2026-11-09-840.webp": "Jordan's card on the partner screen: Connected, last verified 2 hours ago, last activity from Jordan 1 hour ago.",
+    "pair-completed-2026-11-09-840.webp": "An entry in the Partners list: Jordan completed Evening Run, on a 20 day streak, 2 hours ago.",
+    "pair-nudge-2026-11-09-840.webp": "The Nudge Jordan button on the partner screen.",
+    "today-progress-2026-11-09-840.webp": "Today's Progress in HabitFlame: a flame inside a ring at 60 percent, 3 of 5 habits, 2 left, best streak 31.",
+    "celebration-card-2026-11-09-840.webp": "The 7 day streak celebration: Amazing! One week strong! You're building a real habit. Achievement unlocked: Week Warrior, and a Keep Going button.",
+    "year-grid-2026-11-09-840.webp": "The year grid on the Stats tab: a square for each day from May to October, the latest weeks filled in orange and green, and 92 completions in the last year.",
+    "partners-2026-11-09-600.webp": "The Partners tab in HabitFlame. Jordan's card sits at the top, above a card for setting up another of your devices. The newest entry in the list below reads Jordan sent a flame for Morning Run, an hour ago, then Jordan completed Evening Run on a 20 day streak and Journaling on an 11 day streak.",
+}
+
+
+def webp_size(path: "pathlib.Path") -> "tuple[int, int] | None":
+    """Pixel size of a pinned landing screenshot, or None when the file is
+    missing or its bytes are not the pinned ones. The pinned files are simple
+    lossy WebP files, so the size is read from the lossy header."""
+    try:
+        data = path.read_bytes()
+    except (OSError, ValueError):
+        return None
+    if PINNED_SHOT_SHA256.get(path.name) != hashlib.sha256(data).hexdigest():
+        return None
+    if len(data) < 30 or data[:4] != b"RIFF" or data[8:16] != b"WEBPVP8 " or data[23:26] != b"\x9d\x01\x2a":
+        return None
+    return (int.from_bytes(data[26:28], "little") & 0x3FFF, int.from_bytes(data[28:30], "little") & 0x3FFF)
+
+
+def shot_file(url: str) -> "pathlib.Path | None":
+    prefix = PINNED_BASE_URL + PINNED_SHOT_DIR
+    name = url[len(prefix):] if url.startswith(prefix) else ""
+    return ROOT / "assets" / "shots" / name if re.fullmatch(r"[a-z0-9][a-z0-9.-]*\.webp", name) else None
+
+
+def under(node, cls: str) -> bool:
+    """Whether an ancestor of the node (not the node itself) carries the class."""
+    node = node.parent
+    while node is not None:
+        if cls in node.classes:
+            return True
+        node = node.parent
+    return False
+
+
+def shot_name(node) -> str:
+    return (node.attrs.get("src") or "").rsplit("/", 1)[-1]
+
+
+_landing_root = parse(FRESH["index.html"])
+_all_imgs = [n for n in _landing_root.walk() if n.tag == "img"]
+_shots = [n for n in _all_imgs if PINNED_SHOT_DIR in (n.attrs.get("src") or "") or PINNED_SHOT_DIR in (n.attrs.get("srcset") or "")]
+for _n in _all_imgs:
+    if _n not in _shots:
+        check(not _n.attrs.get("srcset"), f"index.html: image {_n.attrs.get('src')!r} carries a srcset; only the hero screenshot has one")
+        check(bool(re.search(r"\.(png|svg|webp)$", urlsplit(_n.attrs.get("src") or "").path)),
+              f"index.html: image src {_n.attrs.get('src')!r} is not an image file")
+_hero_set = (f"{PINNED_BASE_URL}{PINNED_SHOT_DIR}{PINNED_HERO_SHOT}-600.webp 600w, "
+             f"{PINNED_BASE_URL}{PINNED_SHOT_DIR}{PINNED_HERO_SHOT}-900.webp 900w")
+for _n in _shots:
+    _src = _n.attrs.get("src") or ""
+    _file = shot_file(_src)
+    _real = webp_size(_file) if _file else None
+    check(_real is not None, f"index.html: image {_src!r} is not a pinned screenshot file in assets/shots")
+    if _real is not None:
+        _attrs = (_n.attrs.get("width"), _n.attrs.get("height"))
+        check(_attrs == (str(_real[0]), str(_real[1])),
+              f"index.html: image {_src!r} is {_real[0]} by {_real[1]} but its attributes say {_attrs[0]} by {_attrs[1]}")
+    _in_hero = under(_n, "hero-shot")
+    check((_n.attrs.get("srcset") or "") == (_hero_set if _in_hero else ""),
+          f"index.html: image {_src!r} has srcset {_n.attrs.get('srcset')!r}, want {(_hero_set if _in_hero else '')!r}")
+    for _cand in [c.split() for c in (_n.attrs.get("srcset") or "").split(",") if c.strip()]:
+        _cfile = shot_file(_cand[0])
+        _creal = webp_size(_cfile) if _cfile else None
+        check(_creal is not None, f"index.html: srcset candidate {_cand[0]!r} is not a pinned screenshot file in assets/shots")
+        check(len(_cand) == 2 and _creal is not None and _cand[1] == f"{_creal[0]}w",
+              f"index.html: srcset candidate {' '.join(_cand)!r} does not carry its file's real width")
+        check(_creal is None or _real is None or abs(_creal[0] * _real[1] - _creal[1] * _real[0]) <= max(_creal[0], _real[0]),
+              f"index.html: srcset candidate {_cand[0]!r} has another shape than its src")
+    # Only the hero's lifted copy is decorative; every other screenshot is described
+    _decorative = _in_hero and under(_n, "lift")
+    check(bool((_n.attrs.get("alt") or "").strip()) != _decorative,
+          f"index.html: image {_src!r}: the hero's lifted copy has an empty alt, every other screenshot has alt text")
+    check(_decorative or _n.attrs.get("alt") == PINNED_SHOT_ALT.get(shot_name(_n)),
+          f"index.html: image {_src!r}: its alt text is not the pinned description of that picture")
+    check(_n.attrs.get("aria-hidden") is None, f"index.html: image {_src!r} is hidden from assistive technology")
+
+
+def piece_rows_of(cls: str) -> "list[tuple]":
+    """For each row of the landing list with the class: its headings, its
+    paragraphs, and the file name and class of each image in it."""
+    out = []
+    for li in (n for n in _landing_root.walk() if n.tag == "li" and n.parent is not None and cls in n.parent.classes):
+        heads = [n.text().strip() for n in li.walk() if n.tag == "h3"]
+        paras = [n.text().strip() for n in li.walk() if n.tag == "p"]
+        out.append((heads, paras, [(shot_name(n), n.attrs.get("class") or "") for n in li.walk() if n.tag == "img"]))
+    return out
+
+
+def rows_match(cls: str, pinned: list) -> bool:
+    """Each row is one heading, one paragraph that begins as pinned, and its
+    one image with its class (or no image for a row pinned without one)."""
+    rows = piece_rows_of(cls)
+    if len(rows) != len(pinned):
+        return False
+    for (heads, paras, imgs), want in zip(rows, pinned):
+        if heads != [want[0]] or len(paras) != 1 or not paras[0].startswith(want[1]):
+            return False
+        if imgs != ([(want[2], want[3])] if len(want) == 4 else []):
+            return False
+    return True
+
+
+check(rows_match("steps", PINNED_STEP_PIECES), f"index.html: the pairing steps are {piece_rows_of('steps')}, pinned {PINNED_STEP_PIECES}")
+check(rows_match("shown", PINNED_FEATURE_PIECES), f"index.html: the shown features are {piece_rows_of('shown')}, pinned {PINNED_FEATURE_PIECES}")
+check(rows_match("more", PINNED_TEXT_FEATURES), f"index.html: the text features are {piece_rows_of('more')}, pinned {PINNED_TEXT_FEATURES}")
+for _sel, _body in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
+    if re.search(r"\.(?:" + "|".join(SHOT_CLASSES) + r")(?![\w-])", _sel) and hides(_body):
+        failures.append(f"site.css: {' '.join(_sel.split())!r} hides an element that carries a landing screenshot")
+_hero_imgs = [n for n in _shots if under(n, "hero-shot")]
+check([shot_name(n) for n in _hero_imgs] == [f"{PINNED_HERO_SHOT}-600.webp"] * 2 and [under(n, "lift") for n in _hero_imgs] == [False, True],
+      f"index.html: the hero shows {[shot_name(n) for n in _hero_imgs]}, want the screenshot and then its lifted copy of {PINNED_HERO_SHOT}")
+_callouts = [n.text().strip() for n in _landing_root.walk() if n.tag == "figcaption" and under(n, "hero-shot")]
+check(_callouts == [PINNED_HERO_CALLOUT], f"index.html: the hero caption is {_callouts}, pinned {PINNED_HERO_CALLOUT!r} for the lifted row")
+check(len(_shots) == 8, f"index.html: {len(_shots)} screenshots, want the hero's two, three steps and three features")
 
 # k. The inline link form in pages.json never reaches a page unrendered.
 for rel, text in FRESH.items():
