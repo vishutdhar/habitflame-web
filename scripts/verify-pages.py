@@ -1973,7 +1973,8 @@ check(policy_emails == {SITE["contact_email"]}, f"privacy-policy.html: email add
 # emptied, moved or reordered list cannot drop an image or set it beside
 # another row's words; no stylesheet rule may hide the elements that carry
 # them (by display, visibility, zero opacity or zero size). Every file an
-# <img> names, in src or srcset, has a whole WebP container in assets/shots; the hero's
+# <img> names, in src or srcset, is a file in assets/shots whose bytes are
+# pinned, and its alt text is the pinned description of that picture; the hero's
 # srcset is exactly its two sizes and no other image has one; and the width
 # and height attributes are the src file's real size, so the page reserves
 # the right space before the image loads.
@@ -1991,66 +1992,65 @@ PINNED_TEXT_FEATURES = [("Focus with a built-in timer", "A Pomodoro timer runs")
 # The classes that carry a landing screenshot or hold one. No rule of the
 # stylesheet whose selector names one of them may take the element off the page.
 SHOT_CLASSES = ("piece", "lift", "shown", "steps", "hero-shot", "scene", "phone", "device", "screen", "copy")
-HIDING = re.compile(r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*0(?![.\d])"
-                    r"|(?:max-)?(?:width|height)\s*:\s*0(?![.\d])|content-visibility\s*:\s*hidden)", re.I)
+ZERO_HIDES = {"opacity", "width", "height", "max-width", "max-height"}
+
+
+def hides(body: str) -> bool:
+    """Whether a rule's declarations take its element off the page in one of
+    the plain ways: display none, visibility hidden or collapse,
+    content-visibility hidden, or an opacity or a size that is zero however
+    it is written (0, 0.0, 0px, .0em, 0%)."""
+    for decl in body.split(";"):
+        prop, _, value = decl.partition(":")
+        prop, value = prop.strip().lower(), re.sub(r"!\s*important", "", value, flags=re.I).strip().lower()
+        if (prop, value) in {("display", "none"), ("visibility", "hidden"), ("visibility", "collapse"), ("content-visibility", "hidden")}:
+            return True
+        m = re.fullmatch(r"[+-]?(\d*\.?\d+)(?:e[+-]?\d+)?[a-z%]*", value)
+        if prop in ZERO_HIDES and m and float(m.group(1)) == 0:
+            return True
+    return False
+
+
+# Every landing screenshot file, pinned by its SHA-256. A published asset is
+# cached for a year, so its bytes never change under its name (a new picture
+# takes a new dated name and a new line here), and a file that matches its
+# pin is the whole file that was looked at and decoded when it was added.
+PINNED_SHOT_SHA256 = {
+    "celebration-card-2026-11-09-840.webp": "fd740cff2f9b4cd17e31bfc3056073f0cf19f7631a0a117a841ae32d3df13c20",
+    "pair-completed-2026-11-09-840.webp": "aea64f5faf38f27a3550741986e7c69aef99e6a89b91b475c2625b83da9d29ae",
+    "pair-connected-2026-11-09-840.webp": "77d693fb918c3905eb0267b054276c615f9b9b0abf1bcf53827c515ee886d64b",
+    "pair-nudge-2026-11-09-840.webp": "36531ea570132253b525e646948d9485ab69597703d30df63edf1202da0bb5ee",
+    "partners-2026-11-09-600.webp": "cd54483a4d24d1bb5a6cd06ee6433c3ec36a027cd1ae98be5da83bfe9426c0cc",
+    "partners-2026-11-09-900.webp": "f13deb05817b2d61dd492d5b9cc23b96f76060fd705da7c0cfe84a17f0531d5d",
+    "today-progress-2026-11-09-840.webp": "f68521784d4eadfa048bb5166a30790229bdb8b0bfacd08691726de35c6b2d00",
+    "year-grid-2026-11-09-840.webp": "d4df20709f08b7287296b5dd2e614b19a9cdb9243deb22048db209be8c9ded62",
+}
+# What each screenshot shows, word for word, checked against the picture
+# when it was added: the alt text cannot move to another picture.
+PINNED_SHOT_ALT = {
+    "pair-connected-2026-11-09-840.webp": "Jordan's card on the partner screen: Connected, last verified 2 hours ago, last activity from Jordan 1 hour ago.",
+    "pair-completed-2026-11-09-840.webp": "An entry in the Partners list: Jordan completed Evening Run, on a 20 day streak, 2 hours ago.",
+    "pair-nudge-2026-11-09-840.webp": "The Nudge Jordan button on the partner screen.",
+    "today-progress-2026-11-09-840.webp": "Today's Progress in HabitFlame: a flame inside a ring at 60 percent, 3 of 5 habits, 2 left, best streak 31.",
+    "celebration-card-2026-11-09-840.webp": "The 7 day streak celebration: Amazing! One week strong! You're building a real habit. Achievement unlocked: Week Warrior, and a Keep Going button.",
+    "year-grid-2026-11-09-840.webp": "The year grid on the Stats tab: a square for each day from May to October, the latest weeks filled in orange and green, and 92 completions in the last year.",
+    "partners-2026-11-09-600.webp": "The Partners tab in HabitFlame. Jordan's card sits at the top, above a card for setting up another of your devices. The newest entry in the list below reads Jordan sent a flame for Morning Run, an hour ago, then Jordan completed Evening Run on a 20 day streak and Journaling on an 11 day streak.",
+}
 
 
 def webp_size(path: "pathlib.Path") -> "tuple[int, int] | None":
-    """Pixel size of a WebP file, or None when its container is not whole:
-    the RIFF length is the file's own, the chunks tile the file exactly (each
-    inside it, odd sizes padded), a simple file is one image chunk with its
-    format's signature (lossy start code, lossless signature byte), and an
-    extended file is a VP8X header followed by at least one image or frame
-    chunk. Sizes are read as the container specification lays them out. The
-    bitstream itself is not decoded."""
+    """Pixel size of a pinned landing screenshot, or None when the file is
+    missing or its bytes are not the pinned ones. The pinned files are simple
+    lossy WebP files, so the size is read from the lossy header."""
     try:
         data = path.read_bytes()
     except (OSError, ValueError):
         return None
-    if len(data) < 20 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+    if PINNED_SHOT_SHA256.get(path.name) != hashlib.sha256(data).hexdigest():
         return None
-    if int.from_bytes(data[4:8], "little") + 8 != len(data):
+    if len(data) < 30 or data[:4] != b"RIFF" or data[8:16] != b"WEBPVP8 " or data[23:26] != b"\x9d\x01\x2a":
         return None
-    chunks, pos = [], 12
-    while pos < len(data):
-        if pos + 8 > len(data):
-            return None
-        size = int.from_bytes(data[pos + 4:pos + 8], "little")
-        end = pos + 8 + size + (size & 1)
-        if end > len(data):
-            return None
-        chunks.append((data[pos:pos + 4], data[pos + 8:pos + 8 + size]))
-        pos = end
-    if not chunks:
-        return None
-
-    def lossy(body: bytes) -> "tuple[int, int] | None":
-        if len(body) < 10 or body[3:6] != b"\x9d\x01\x2a" or body[0] & 1:
-            return None
-        return (int.from_bytes(body[6:8], "little") & 0x3FFF, int.from_bytes(body[8:10], "little") & 0x3FFF)
-
-    def lossless(body: bytes) -> "tuple[int, int] | None":
-        if len(body) < 5 or body[0] != 0x2F:
-            return None
-        bits = int.from_bytes(body[1:5], "little")
-        return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
-
-    kind, body = chunks[0]
-    if kind == b"VP8 ":
-        return lossy(body) if len(chunks) == 1 else None
-    if kind == b"VP8L":
-        return lossless(body) if len(chunks) == 1 else None
-    if kind == b"VP8X":
-        if len(body) != 10:
-            return None
-        canvas = (int.from_bytes(body[4:7], "little") + 1, int.from_bytes(body[7:10], "little") + 1)
-        stills = [lossy(b) if k == b"VP8 " else lossless(b) for k, b in chunks[1:] if k in (b"VP8 ", b"VP8L")]
-        frames = [b for k, b in chunks[1:] if k == b"ANMF"]
-        if stills:
-            # a still image: one bitstream, whole, the size of the canvas
-            return canvas if len(stills) == 1 and stills[0] == canvas and not frames else None
-        return canvas if frames and all(len(b) >= 16 for b in frames) else None
-    return None
+    return (int.from_bytes(data[26:28], "little") & 0x3FFF, int.from_bytes(data[28:30], "little") & 0x3FFF)
 
 
 def shot_file(url: str) -> "pathlib.Path | None":
@@ -2087,7 +2087,7 @@ for _n in _shots:
     _src = _n.attrs.get("src") or ""
     _file = shot_file(_src)
     _real = webp_size(_file) if _file else None
-    check(_real is not None, f"index.html: image {_src!r} is not a whole WebP file in assets/shots")
+    check(_real is not None, f"index.html: image {_src!r} is not a pinned screenshot file in assets/shots")
     if _real is not None:
         _attrs = (_n.attrs.get("width"), _n.attrs.get("height"))
         check(_attrs == (str(_real[0]), str(_real[1])),
@@ -2098,7 +2098,7 @@ for _n in _shots:
     for _cand in [c.split() for c in (_n.attrs.get("srcset") or "").split(",") if c.strip()]:
         _cfile = shot_file(_cand[0])
         _creal = webp_size(_cfile) if _cfile else None
-        check(_creal is not None, f"index.html: srcset candidate {_cand[0]!r} is not a whole WebP file in assets/shots")
+        check(_creal is not None, f"index.html: srcset candidate {_cand[0]!r} is not a pinned screenshot file in assets/shots")
         check(len(_cand) == 2 and _creal is not None and _cand[1] == f"{_creal[0]}w",
               f"index.html: srcset candidate {' '.join(_cand)!r} does not carry its file's real width")
         check(_creal is None or _real is None or abs(_creal[0] * _real[1] - _creal[1] * _real[0]) <= max(_creal[0], _real[0]),
@@ -2107,6 +2107,8 @@ for _n in _shots:
     _decorative = _in_hero and under(_n, "lift")
     check(bool((_n.attrs.get("alt") or "").strip()) != _decorative,
           f"index.html: image {_src!r}: the hero's lifted copy has an empty alt, every other screenshot has alt text")
+    check(_decorative or _n.attrs.get("alt") == PINNED_SHOT_ALT.get(shot_name(_n)),
+          f"index.html: image {_src!r}: its alt text is not the pinned description of that picture")
     check(_n.attrs.get("aria-hidden") is None, f"index.html: image {_src!r} is hidden from assistive technology")
 
 
@@ -2139,7 +2141,7 @@ check(rows_match("steps", PINNED_STEP_PIECES), f"index.html: the pairing steps a
 check(rows_match("shown", PINNED_FEATURE_PIECES), f"index.html: the shown features are {piece_rows_of('shown')}, pinned {PINNED_FEATURE_PIECES}")
 check(rows_match("more", PINNED_TEXT_FEATURES), f"index.html: the text features are {piece_rows_of('more')}, pinned {PINNED_TEXT_FEATURES}")
 for _sel, _body in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
-    if re.search(r"\.(?:" + "|".join(SHOT_CLASSES) + r")(?![\w-])", _sel) and HIDING.search(_body):
+    if re.search(r"\.(?:" + "|".join(SHOT_CLASSES) + r")(?![\w-])", _sel) and hides(_body):
         failures.append(f"site.css: {' '.join(_sel.split())!r} hides an element that carries a landing screenshot")
 _hero_imgs = [n for n in _shots if under(n, "hero-shot")]
 check([shot_name(n) for n in _hero_imgs] == [f"{PINNED_HERO_SHOT}-600.webp"] * 2 and [under(n, "lift") for n in _hero_imgs] == [False, True],
