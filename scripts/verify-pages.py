@@ -1980,6 +1980,8 @@ check(policy_emails == {SITE["contact_email"]}, f"privacy-policy.html: email add
 # the right space before the image loads.
 PINNED_SHOT_DIR = "/assets/shots/"
 PINNED_HERO_SHOT = "partners-2026-11-09"
+# The caption names the row the hero lifts out of that screenshot
+PINNED_HERO_CALLOUT = "Jordan reacted to your Morning Run."
 # (heading, how the row's paragraph begins, image file, image class)
 PINNED_STEP_PIECES = [("Send one invite link", "Open the Partners tab and send an invite link", "pair-connected-2026-11-09-840.webp", "piece"),
                       ("Check in as usual", "With Premium, each shared habit you complete in the app for today is sent", "pair-completed-2026-11-09-840.webp", "piece"),
@@ -2005,7 +2007,9 @@ def hides(body: str) -> bool:
         prop, value = prop.strip().lower(), re.sub(r"!\s*important", "", value, flags=re.I).strip().lower()
         if (prop, value) in {("display", "none"), ("visibility", "hidden"), ("visibility", "collapse"), ("content-visibility", "hidden")}:
             return True
-        m = re.fullmatch(r"[+-]?(\d*\.?\d+)(?:e[+-]?\d+)?[a-z%]*", value)
+        # The number the value starts with; whatever follows is its unit,
+        # however that is spelled (px, %, an escaped letter)
+        m = re.match(r"[+-]?(\d*\.?\d+)(?![\d.])", value)
         if prop in ZERO_HIDES and m and float(m.group(1)) == 0:
             return True
     return False
@@ -2146,6 +2150,8 @@ for _sel, _body in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", 
 _hero_imgs = [n for n in _shots if under(n, "hero-shot")]
 check([shot_name(n) for n in _hero_imgs] == [f"{PINNED_HERO_SHOT}-600.webp"] * 2 and [under(n, "lift") for n in _hero_imgs] == [False, True],
       f"index.html: the hero shows {[shot_name(n) for n in _hero_imgs]}, want the screenshot and then its lifted copy of {PINNED_HERO_SHOT}")
+_callouts = [n.text().strip() for n in _landing_root.walk() if n.tag == "figcaption" and under(n, "hero-shot")]
+check(_callouts == [PINNED_HERO_CALLOUT], f"index.html: the hero caption is {_callouts}, pinned {PINNED_HERO_CALLOUT!r} for the lifted row")
 check(len(_shots) == 8, f"index.html: {len(_shots)} screenshots, want the hero's two, three steps and three features")
 
 # k. The inline link form in pages.json never reaches a page unrendered.
