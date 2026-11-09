@@ -306,12 +306,13 @@ def actions(page: dict | None, slot: str) -> str:
     )
 
 
-def shot(spec: dict, sizes: str, eager: bool, cutout: bool = False) -> str:
-    """A screenshot from /assets/shots at 600 and 900 pixels wide. A cutout
-    is a second, decorative copy of a shot already on the page: the same src,
-    srcset and sizes, so it resolves to the file already loaded."""
+def shot(spec: dict, sizes: str, cutout: bool = False) -> str:
+    """The hero screenshot from /assets/shots at 600 and 900 pixels wide,
+    loaded first. A cutout is a second, decorative copy of the shot already
+    on the page: the same src, srcset and sizes, so it resolves to the file
+    already loaded."""
     src = f"{BASE}/assets/shots/{spec['stem']}"
-    load = "" if cutout else ' fetchpriority="high"' if eager else ' loading="lazy"'
+    load = "" if cutout else ' fetchpriority="high"'
     alt = "" if cutout else spec["alt"]
     return (
         f'<img src="{esc(src)}-600.webp" srcset="{esc(src)}-600.webp 600w, {esc(src)}-900.webp 900w" '
@@ -413,9 +414,9 @@ def landing_main() -> str:
         '<div class="scene">\n'
         f"{field()}\n"
         '<div class="device phone"><div class="screen">'
-        f"{shot(hero, HERO_SIZES, eager=True)}"
+        f"{shot(hero, HERO_SIZES)}"
         '<div class="lift" aria-hidden="true">'
-        f"{shot(hero, HERO_SIZES, eager=True, cutout=True)}"
+        f"{shot(hero, HERO_SIZES, cutout=True)}"
         "</div>"
         "</div></div>\n"
         "</div>\n"
