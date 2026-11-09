@@ -1969,29 +1969,40 @@ check(policy_emails == {SITE["contact_email"]}, f"privacy-policy.html: email add
 
 # The landing's screenshots. Which piece of the app stands beside each
 # pairing step and each shown feature is pinned here with the row's own
-# heading, outside pages.json, so an emptied, moved or reordered list cannot
-# drop an image or set it beside another row's words. Every file an <img>
-# names, in src or srcset, is a whole WebP file in assets/shots; the hero's
+# heading and the opening of its paragraph, outside pages.json, so an
+# emptied, moved or reordered list cannot drop an image or set it beside
+# another row's words; no stylesheet rule may hide the elements that carry
+# them (by display, visibility, zero opacity or zero size). Every file an
+# <img> names, in src or srcset, has a whole WebP container in assets/shots; the hero's
 # srcset is exactly its two sizes and no other image has one; and the width
 # and height attributes are the src file's real size, so the page reserves
 # the right space before the image loads.
 PINNED_SHOT_DIR = "/assets/shots/"
 PINNED_HERO_SHOT = "partners-2026-11-09"
-PINNED_STEP_PIECES = [("Send one invite link", "pair-connected-2026-11-09-840.webp"),
-                      ("Check in as usual", "pair-completed-2026-11-09-840.webp"),
-                      ("Hear back from them", "pair-nudge-2026-11-09-840.webp")]
-PINNED_FEATURE_PIECES = [("Track any habit your way", "today-progress-2026-11-09-840.webp"),
-                         ("Keep the streak alive", "celebration-card-2026-11-09-840.webp"),
-                         ("See the whole year", "year-grid-2026-11-09-840.webp")]
-PINNED_TEXT_FEATURES = ["Focus with a built-in timer", "Get reminders that change", "Glance from the home screen"]
+# (heading, how the row's paragraph begins, image file, image class)
+PINNED_STEP_PIECES = [("Send one invite link", "Open the Partners tab and send an invite link", "pair-connected-2026-11-09-840.webp", "piece"),
+                      ("Check in as usual", "With Premium, each shared habit you complete in the app for today is sent", "pair-completed-2026-11-09-840.webp", "piece"),
+                      ("Hear back from them", "They can react with a flame", "pair-nudge-2026-11-09-840.webp", "piece")]
+PINNED_FEATURE_PIECES = [("Track any habit your way", "Yes or no, a count, a duration", "today-progress-2026-11-09-840.webp", "piece"),
+                         ("Keep the streak alive", "See your current and longest streak", "celebration-card-2026-11-09-840.webp", "piece narrow"),
+                         ("See the whole year", "The Stats tab lays out the last year", "year-grid-2026-11-09-840.webp", "piece")]
+PINNED_TEXT_FEATURES = [("Focus with a built-in timer", "A Pomodoro timer runs"), ("Get reminders that change", "Set a reminder time per habit"),
+                        ("Glance from the home screen", "Interactive widgets show")]
+# The classes that carry a landing screenshot or hold one. No rule of the
+# stylesheet whose selector names one of them may take the element off the page.
+SHOT_CLASSES = ("piece", "lift", "shown", "steps", "hero-shot", "scene", "phone", "device", "screen", "copy")
+HIDING = re.compile(r"(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*0(?![.\d])"
+                    r"|(?:max-)?(?:width|height)\s*:\s*0(?![.\d])|content-visibility\s*:\s*hidden)", re.I)
 
 
 def webp_size(path: "pathlib.Path") -> "tuple[int, int] | None":
-    """Pixel size of a WebP file, or None when the file is not a whole one:
-    the RIFF length must be the file's own, the first chunk must lie inside
-    the file, and its header must carry the format's signature (lossy start
-    code, lossless signature byte). Sizes are read as the container
-    specification lays them out."""
+    """Pixel size of a WebP file, or None when its container is not whole:
+    the RIFF length is the file's own, the chunks tile the file exactly (each
+    inside it, odd sizes padded), a simple file is one image chunk with its
+    format's signature (lossy start code, lossless signature byte), and an
+    extended file is a VP8X header followed by at least one image or frame
+    chunk. Sizes are read as the container specification lays them out. The
+    bitstream itself is not decoded."""
     try:
         data = path.read_bytes()
     except (OSError, ValueError):
@@ -2000,24 +2011,45 @@ def webp_size(path: "pathlib.Path") -> "tuple[int, int] | None":
         return None
     if int.from_bytes(data[4:8], "little") + 8 != len(data):
         return None
-    kind, size = data[12:16], int.from_bytes(data[16:20], "little")
-    if 20 + size > len(data):
+    chunks, pos = [], 12
+    while pos < len(data):
+        if pos + 8 > len(data):
+            return None
+        size = int.from_bytes(data[pos + 4:pos + 8], "little")
+        end = pos + 8 + size + (size & 1)
+        if end > len(data):
+            return None
+        chunks.append((data[pos:pos + 4], data[pos + 8:pos + 8 + size]))
+        pos = end
+    if not chunks:
         return None
-    body = data[20:20 + size]
-    if kind == b"VP8 ":
+
+    def lossy(body: bytes) -> "tuple[int, int] | None":
         if len(body) < 10 or body[3:6] != b"\x9d\x01\x2a" or body[0] & 1:
             return None
         return (int.from_bytes(body[6:8], "little") & 0x3FFF, int.from_bytes(body[8:10], "little") & 0x3FFF)
-    if kind == b"VP8L":
+
+    def lossless(body: bytes) -> "tuple[int, int] | None":
         if len(body) < 5 or body[0] != 0x2F:
             return None
         bits = int.from_bytes(body[1:5], "little")
         return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
+
+    kind, body = chunks[0]
+    if kind == b"VP8 ":
+        return lossy(body) if len(chunks) == 1 else None
+    if kind == b"VP8L":
+        return lossless(body) if len(chunks) == 1 else None
     if kind == b"VP8X":
-        # An extended file is whole only when an image chunk follows the header
-        if size != 10 or not any(tag in data[30:] for tag in (b"VP8 ", b"VP8L", b"ANMF")):
+        if len(body) != 10:
             return None
-        return (int.from_bytes(body[4:7], "little") + 1, int.from_bytes(body[7:10], "little") + 1)
+        canvas = (int.from_bytes(body[4:7], "little") + 1, int.from_bytes(body[7:10], "little") + 1)
+        stills = [lossy(b) if k == b"VP8 " else lossless(b) for k, b in chunks[1:] if k in (b"VP8 ", b"VP8L")]
+        frames = [b for k, b in chunks[1:] if k == b"ANMF"]
+        if stills:
+            # a still image: one bitstream, whole, the size of the canvas
+            return canvas if len(stills) == 1 and stills[0] == canvas and not frames else None
+        return canvas if frames and all(len(b) >= 16 for b in frames) else None
     return None
 
 
@@ -2078,21 +2110,37 @@ for _n in _shots:
     check(_n.attrs.get("aria-hidden") is None, f"index.html: image {_src!r} is hidden from assistive technology")
 
 
-def piece_rows_of(cls: str) -> "list[tuple[str, list[str]]]":
-    """(heading, image file names) for each row of the landing list with the class."""
+def piece_rows_of(cls: str) -> "list[tuple]":
+    """For each row of the landing list with the class: its headings, its
+    paragraphs, and the file name and class of each image in it."""
     out = []
     for li in (n for n in _landing_root.walk() if n.tag == "li" and n.parent is not None and cls in n.parent.classes):
         heads = [n.text().strip() for n in li.walk() if n.tag == "h3"]
-        out.append((" | ".join(heads), [shot_name(n) for n in li.walk() if n.tag == "img"]))
+        paras = [n.text().strip() for n in li.walk() if n.tag == "p"]
+        out.append((heads, paras, [(shot_name(n), n.attrs.get("class") or "") for n in li.walk() if n.tag == "img"]))
     return out
 
 
-check(piece_rows_of("steps") == [(h, [f]) for h, f in PINNED_STEP_PIECES],
-      f"index.html: the pairing steps are {piece_rows_of('steps')}, pinned {PINNED_STEP_PIECES}")
-check(piece_rows_of("shown") == [(h, [f]) for h, f in PINNED_FEATURE_PIECES],
-      f"index.html: the shown features are {piece_rows_of('shown')}, pinned {PINNED_FEATURE_PIECES}")
-check(piece_rows_of("more") == [(h, []) for h in PINNED_TEXT_FEATURES],
-      f"index.html: the text features are {piece_rows_of('more')}, pinned {PINNED_TEXT_FEATURES}")
+def rows_match(cls: str, pinned: list) -> bool:
+    """Each row is one heading, one paragraph that begins as pinned, and its
+    one image with its class (or no image for a row pinned without one)."""
+    rows = piece_rows_of(cls)
+    if len(rows) != len(pinned):
+        return False
+    for (heads, paras, imgs), want in zip(rows, pinned):
+        if heads != [want[0]] or len(paras) != 1 or not paras[0].startswith(want[1]):
+            return False
+        if imgs != ([(want[2], want[3])] if len(want) == 4 else []):
+            return False
+    return True
+
+
+check(rows_match("steps", PINNED_STEP_PIECES), f"index.html: the pairing steps are {piece_rows_of('steps')}, pinned {PINNED_STEP_PIECES}")
+check(rows_match("shown", PINNED_FEATURE_PIECES), f"index.html: the shown features are {piece_rows_of('shown')}, pinned {PINNED_FEATURE_PIECES}")
+check(rows_match("more", PINNED_TEXT_FEATURES), f"index.html: the text features are {piece_rows_of('more')}, pinned {PINNED_TEXT_FEATURES}")
+for _sel, _body in re.findall(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
+    if re.search(r"\.(?:" + "|".join(SHOT_CLASSES) + r")(?![\w-])", _sel) and HIDING.search(_body):
+        failures.append(f"site.css: {' '.join(_sel.split())!r} hides an element that carries a landing screenshot")
 _hero_imgs = [n for n in _shots if under(n, "hero-shot")]
 check([shot_name(n) for n in _hero_imgs] == [f"{PINNED_HERO_SHOT}-600.webp"] * 2 and [under(n, "lift") for n in _hero_imgs] == [False, True],
       f"index.html: the hero shows {[shot_name(n) for n in _hero_imgs]}, want the screenshot and then its lifted copy of {PINNED_HERO_SHOT}")
