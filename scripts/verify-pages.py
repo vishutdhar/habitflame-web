@@ -1968,45 +1968,68 @@ policy_emails = emails_in(POLICY)
 check(policy_emails == {SITE["contact_email"]}, f"privacy-policy.html: email addresses {sorted(policy_emails)}")
 
 # The landing's screenshots. Which piece of the app stands beside each
-# pairing step and each shown feature is pinned here, outside pages.json, so
-# an emptied or reordered list cannot drop an image unseen. Every file an
-# <img> names, in src or srcset, exists; a srcset width is the file's real
-# width; and the width and height attributes are the src file's real size,
-# so the page reserves the right space before the image loads.
+# pairing step and each shown feature is pinned here with the row's own
+# heading, outside pages.json, so an emptied, moved or reordered list cannot
+# drop an image or set it beside another row's words. Every file an <img>
+# names, in src or srcset, is a whole WebP file in assets/shots; the hero's
+# srcset is exactly its two sizes and no other image has one; and the width
+# and height attributes are the src file's real size, so the page reserves
+# the right space before the image loads.
 PINNED_SHOT_DIR = "/assets/shots/"
 PINNED_HERO_SHOT = "partners-2026-11-09"
-PINNED_STEP_PIECES = ["pair-connected-2026-11-09-840.webp", "pair-completed-2026-11-09-840.webp",
-                      "pair-nudge-2026-11-09-840.webp"]
-PINNED_FEATURE_PIECES = ["today-progress-2026-11-09-840.webp", "celebration-card-2026-11-09-840.webp",
-                         "year-grid-2026-11-09-840.webp"]
+PINNED_STEP_PIECES = [("Send one invite link", "pair-connected-2026-11-09-840.webp"),
+                      ("Check in as usual", "pair-completed-2026-11-09-840.webp"),
+                      ("Hear back from them", "pair-nudge-2026-11-09-840.webp")]
+PINNED_FEATURE_PIECES = [("Track any habit your way", "today-progress-2026-11-09-840.webp"),
+                         ("Keep the streak alive", "celebration-card-2026-11-09-840.webp"),
+                         ("See the whole year", "year-grid-2026-11-09-840.webp")]
+PINNED_TEXT_FEATURES = ["Focus with a built-in timer", "Get reminders that change", "Glance from the home screen"]
 
 
-def webp_size(path: Path) -> "tuple[int, int] | None":
-    """Pixel size of a WebP file, read from its header (lossy, lossless or
-    extended); None when the file is not one."""
+def webp_size(path: "pathlib.Path") -> "tuple[int, int] | None":
+    """Pixel size of a WebP file, or None when the file is not a whole one:
+    the RIFF length must be the file's own, the first chunk must lie inside
+    the file, and its header must carry the format's signature (lossy start
+    code, lossless signature byte). Sizes are read as the container
+    specification lays them out."""
     try:
-        head = path.read_bytes()[:40]
-    except OSError:
+        data = path.read_bytes()
+    except (OSError, ValueError):
         return None
-    if len(head) < 30 or head[:4] != b"RIFF" or head[8:12] != b"WEBP":
+    if len(data) < 20 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
         return None
-    kind = head[12:16]
+    if int.from_bytes(data[4:8], "little") + 8 != len(data):
+        return None
+    kind, size = data[12:16], int.from_bytes(data[16:20], "little")
+    if 20 + size > len(data):
+        return None
+    body = data[20:20 + size]
     if kind == b"VP8 ":
-        return (int.from_bytes(head[26:28], "little") & 0x3FFF, int.from_bytes(head[28:30], "little") & 0x3FFF)
+        if len(body) < 10 or body[3:6] != b"\x9d\x01\x2a" or body[0] & 1:
+            return None
+        return (int.from_bytes(body[6:8], "little") & 0x3FFF, int.from_bytes(body[8:10], "little") & 0x3FFF)
     if kind == b"VP8L":
-        bits = int.from_bytes(head[21:25], "little")
+        if len(body) < 5 or body[0] != 0x2F:
+            return None
+        bits = int.from_bytes(body[1:5], "little")
         return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
     if kind == b"VP8X":
-        return (int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1)
+        # An extended file is whole only when an image chunk follows the header
+        if size != 10 or not any(tag in data[30:] for tag in (b"VP8 ", b"VP8L", b"ANMF")):
+            return None
+        return (int.from_bytes(body[4:7], "little") + 1, int.from_bytes(body[7:10], "little") + 1)
     return None
 
 
-def shot_file(url: str) -> "Path | None":
+def shot_file(url: str) -> "pathlib.Path | None":
     prefix = PINNED_BASE_URL + PINNED_SHOT_DIR
-    return ROOT / "assets" / "shots" / url[len(prefix):] if url.startswith(prefix) and "/" not in url[len(prefix):] else None
+    name = url[len(prefix):] if url.startswith(prefix) else ""
+    return ROOT / "assets" / "shots" / name if re.fullmatch(r"[a-z0-9][a-z0-9.-]*\.webp", name) else None
 
 
-def inside(node, cls: str) -> bool:
+def under(node, cls: str) -> bool:
+    """Whether an ancestor of the node (not the node itself) carries the class."""
+    node = node.parent
     while node is not None:
         if cls in node.classes:
             return True
@@ -2014,37 +2037,66 @@ def inside(node, cls: str) -> bool:
     return False
 
 
+def shot_name(node) -> str:
+    return (node.attrs.get("src") or "").rsplit("/", 1)[-1]
+
+
 _landing_root = parse(FRESH["index.html"])
-_shots = [n for n in _landing_root.walk() if n.tag == "img" and PINNED_SHOT_DIR in (n.attrs.get("src") or "")]
+_all_imgs = [n for n in _landing_root.walk() if n.tag == "img"]
+_shots = [n for n in _all_imgs if PINNED_SHOT_DIR in (n.attrs.get("src") or "") or PINNED_SHOT_DIR in (n.attrs.get("srcset") or "")]
+for _n in _all_imgs:
+    if _n not in _shots:
+        check(not _n.attrs.get("srcset"), f"index.html: image {_n.attrs.get('src')!r} carries a srcset; only the hero screenshot has one")
+        check(bool(re.search(r"\.(png|svg|webp)$", urlsplit(_n.attrs.get("src") or "").path)),
+              f"index.html: image src {_n.attrs.get('src')!r} is not an image file")
+_hero_set = (f"{PINNED_BASE_URL}{PINNED_SHOT_DIR}{PINNED_HERO_SHOT}-600.webp 600w, "
+             f"{PINNED_BASE_URL}{PINNED_SHOT_DIR}{PINNED_HERO_SHOT}-900.webp 900w")
 for _n in _shots:
     _src = _n.attrs.get("src") or ""
     _file = shot_file(_src)
     _real = webp_size(_file) if _file else None
-    check(_real is not None, f"index.html: image {_src!r} is not a WebP file in assets/shots")
+    check(_real is not None, f"index.html: image {_src!r} is not a whole WebP file in assets/shots")
     if _real is not None:
         _attrs = (_n.attrs.get("width"), _n.attrs.get("height"))
         check(_attrs == (str(_real[0]), str(_real[1])),
               f"index.html: image {_src!r} is {_real[0]} by {_real[1]} but its attributes say {_attrs[0]} by {_attrs[1]}")
-    _candidates = [c.split() for c in (_n.attrs.get("srcset") or "").split(",") if c.strip()]
-    for _cand in _candidates:
+    _in_hero = under(_n, "hero-shot")
+    check((_n.attrs.get("srcset") or "") == (_hero_set if _in_hero else ""),
+          f"index.html: image {_src!r} has srcset {_n.attrs.get('srcset')!r}, want {(_hero_set if _in_hero else '')!r}")
+    for _cand in [c.split() for c in (_n.attrs.get("srcset") or "").split(",") if c.strip()]:
         _cfile = shot_file(_cand[0])
         _creal = webp_size(_cfile) if _cfile else None
-        check(_creal is not None, f"index.html: srcset candidate {_cand[0]!r} is not a WebP file in assets/shots")
+        check(_creal is not None, f"index.html: srcset candidate {_cand[0]!r} is not a whole WebP file in assets/shots")
         check(len(_cand) == 2 and _creal is not None and _cand[1] == f"{_creal[0]}w",
               f"index.html: srcset candidate {' '.join(_cand)!r} does not carry its file's real width")
         check(_creal is None or _real is None or abs(_creal[0] * _real[1] - _creal[1] * _real[0]) <= max(_creal[0], _real[0]),
               f"index.html: srcset candidate {_cand[0]!r} has another shape than its src")
-    check(bool(_n.attrs.get("alt")) != inside(_n, "lift"),
-          f"index.html: image {_src!r}: the lifted copy is decorative (empty alt), every other shot has alt text")
-_names = lambda cls: [(_n.attrs.get("src") or "").rsplit("/", 1)[-1] for _n in _shots if inside(_n, cls)]
-check(_names("steps") == PINNED_STEP_PIECES, f"index.html: the pairing steps show {_names('steps')}, pinned {PINNED_STEP_PIECES}")
-check(_names("shown") == PINNED_FEATURE_PIECES, f"index.html: the shown features show {_names('shown')}, pinned {PINNED_FEATURE_PIECES}")
-check(_names("hero-shot") == [f"{PINNED_HERO_SHOT}-600.webp"] * 2,
-      f"index.html: the hero shows {_names('hero-shot')}, want the screenshot and its lifted copy of {PINNED_HERO_SHOT}")
+    # Only the hero's lifted copy is decorative; every other screenshot is described
+    _decorative = _in_hero and under(_n, "lift")
+    check(bool((_n.attrs.get("alt") or "").strip()) != _decorative,
+          f"index.html: image {_src!r}: the hero's lifted copy has an empty alt, every other screenshot has alt text")
+    check(_n.attrs.get("aria-hidden") is None, f"index.html: image {_src!r} is hidden from assistive technology")
+
+
+def piece_rows_of(cls: str) -> "list[tuple[str, list[str]]]":
+    """(heading, image file names) for each row of the landing list with the class."""
+    out = []
+    for li in (n for n in _landing_root.walk() if n.tag == "li" and n.parent is not None and cls in n.parent.classes):
+        heads = [n.text().strip() for n in li.walk() if n.tag == "h3"]
+        out.append((" | ".join(heads), [shot_name(n) for n in li.walk() if n.tag == "img"]))
+    return out
+
+
+check(piece_rows_of("steps") == [(h, [f]) for h, f in PINNED_STEP_PIECES],
+      f"index.html: the pairing steps are {piece_rows_of('steps')}, pinned {PINNED_STEP_PIECES}")
+check(piece_rows_of("shown") == [(h, [f]) for h, f in PINNED_FEATURE_PIECES],
+      f"index.html: the shown features are {piece_rows_of('shown')}, pinned {PINNED_FEATURE_PIECES}")
+check(piece_rows_of("more") == [(h, []) for h in PINNED_TEXT_FEATURES],
+      f"index.html: the text features are {piece_rows_of('more')}, pinned {PINNED_TEXT_FEATURES}")
+_hero_imgs = [n for n in _shots if under(n, "hero-shot")]
+check([shot_name(n) for n in _hero_imgs] == [f"{PINNED_HERO_SHOT}-600.webp"] * 2 and [under(n, "lift") for n in _hero_imgs] == [False, True],
+      f"index.html: the hero shows {[shot_name(n) for n in _hero_imgs]}, want the screenshot and then its lifted copy of {PINNED_HERO_SHOT}")
 check(len(_shots) == 8, f"index.html: {len(_shots)} screenshots, want the hero's two, three steps and three features")
-for _cls, _want in (("steps", 3), ("shown", 3), ("more", 3)):
-    _lis = [n for n in _landing_root.walk() if n.tag == "li" and n.parent is not None and _cls in n.parent.classes]
-    check(len(_lis) == _want, f"index.html: the {_cls} list has {len(_lis)} rows, want {_want}")
 
 # k. The inline link form in pages.json never reaches a page unrendered.
 for rel, text in FRESH.items():

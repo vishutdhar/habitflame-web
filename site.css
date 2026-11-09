@@ -622,8 +622,7 @@ main > section + section {
   list-style: none;
 }
 
-.rows li,
-.guides li {
+.rows li {
   padding-block: 24px;
 }
 
